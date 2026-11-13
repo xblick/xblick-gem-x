@@ -1,0 +1,191 @@
+# How the node works
+
+This page describes the four steps that durchblick-gem-x executes per frame, the bodies message, all options, the
+setup and the tests.
+
+## The steps per frame
+
+```mermaid
+flowchart LR
+  C[colour frame] --> P[1. persons: YOLOX]
+  P --> I[2. ids: box overlap]
+  I --> B[3. bodies: GEM-X]
+  D[depth frame] --> F[4. depth fit]
+  B --> F
+  F --> M[bodies message]
+```
+
+The node reads each camera through `blick.rgbd`. This module pairs a colour frame with a depth frame by their
+stamps. It scales the colour frame to the resolution of the depth frame and removes the lens distortion.
+
+### 1. Persons
+
+YOLOX-X finds the persons in the colour frame. The model is OpenMMLab's HumanArt ONNX model, which is the detector
+that GEM-X itself uses. It executes on ONNX Runtime, a library that executes models in the ONNX format, in its CUDA
+build.
+
+The node keeps a person when the score exceeds `--min-score` and the box is at least `--min-height` pixels high. If
+more than `--max-persons` remain, the node keeps the persons with the largest boxes.
+
+### 2. Ids
+
+`tracking.py` gives each person an id. It compares the boxes of the frame with the boxes of the persons it already
+knows. The measure is the overlap of two boxes (intersection over union). The tracker assigns the pairs with the
+largest overlap first, and a pair needs an overlap of at least 0.3.
+
+A person without a match gets a new id. Ids count up from 1, as the body ids of the Azure Kinect do. An id ends when
+its person has no match for more than 10 frames. The node never uses an id again.
+
+### 3. Bodies
+
+GEM-X's Body Pose model computes one body per person (`gemx.py`). The input of a person is a square crop around the
+box. The side of the crop is 1.2 times the longer side of the box. All persons of a frame form one batch.
+
+The model receives the intrinsics of the camera. It returns the 77 joints of SOMA and SOMA's mesh of 18,000 vertices
+for each person, in metres in the camera frame. The model computes in bfloat16 by default.
+
+### 4. Depth fit
+
+GEM-X reconstructs a body from one image. It takes the size of a person from the body shape it has learned, and it
+derives the distance from that size. The distance is therefore wrong for a person of unusual size, for example a
+child or a crouching person.
+
+The depth fit corrects the distance with the measured depth (`depth.py`). It moves the body along the ray from the
+camera through the hips until the visible surface of the body lies on the measured depth. The size of the body stays
+as GEM-X estimated it. The projection of the hips stays in place. The other joints move by a fraction of a pixel per
+centimetre of shift at the usual distance of a body.
+
+The fit works in three steps.
+
+1. It projects the vertices of the mesh into the depth image and keeps the nearest vertex per pixel. This is the
+   visible surface. The 18,000 vertices cover the pixels of a body densely enough at its usual size in a 640 x 480
+   image, so the fit does not render triangles.
+2. It computes the median of measured depth minus predicted depth over these pixels.
+3. It repeats the median over the pixels within `--gate` (8 cm) of the first median. This step removes other people,
+   objects in front of the person and the background behind the silhouette.
+
+The fit needs at least 100 pixels with depth in step 1 and in step 3. With fewer pixels the body keeps the distance
+of GEM-X, and `depth_fit` is null. `--no-depth-fit` switches the fit off for all bodies.
+
+## The bodies message
+
+The message is JSON with the encoding `application/json`. It has the layout of durchblick-azure-kinect's bodies, so a
+reader of that topic can read both. One reader is Durchblick's Rerun bridge. Change the layout only together
+with its readers.
+
+| Field | Content |
+| --- | --- |
+| `v` | 1, the version of the layout |
+| `model` | `K4ABT_BODY_32` |
+| `source` | `gem-x` |
+| `stamp_ns` | the stamp of the frame |
+| `frame_id` | the frame of the colour camera |
+| `latency_ms` | the time from the stamp to the publication |
+| `bodies` | a list with one entry per person |
+
+| Field of a body | Content |
+| --- | --- |
+| `id` | the id of the person |
+| `joints` | the 32 joints of the Azure Kinect by name. Each has `position_mm`, `orientation_wxyz` and `confidence`. |
+| `soma77_mm` | all 77 SOMA joints in mm, in the order of `SOMA77` in `skeleton.py` |
+| `depth_fit` | `shift_m`, `pixels`, `inliers` and `residual_m` of the depth fit, or null without a fit |
+
+`shift_m` is the change of the depth along the camera's z axis. A positive value means that GEM-X placed the body
+too near. `pixels` counts the visible pixels of the body that have a measured depth. `inliers` counts those within
+the gate. `residual_m` is the median absolute difference of the inliers after the shift.
+
+Each sample also has Durchblick's attachment with `seq` and `publish_ns`, so a reader knows the age of the bodies at
+the time of sending. Durchblick's page on
+[timestamps](https://github.com/xblick/durchblick/blob/main/docs/concepts/timestamps.md) explains
+the attachment.
+
+### From 77 SOMA joints to 32 Kinect joints
+
+`skeleton.py` maps the joints by anatomy.
+
+| Kinect joint | SOMA joint |
+| --- | --- |
+| Pelvis, SpineNaval, SpineChest, Neck, Head | Hips, Spine1, Chest, Neck1, Head |
+| EyeLeft, EyeRight | LeftEye, RightEye |
+| Clavicle, Shoulder, Elbow, Wrist (left and right) | Shoulder, Arm, ForeArm, Hand |
+| Hand, Handtip, Thumb (left and right) | HandMiddle1, HandMiddleEnd, HandThumbEnd |
+| Hip, Knee, Ankle, Foot (left and right) | Leg, Shin, Foot, ToeBase |
+
+SOMA has no nose and no ears. The node places the nose between the eyes and 4 cm ahead of them, away from the head
+joint. It places each ear 7.5 cm out from the head joint along the axis of the eyes.
+
+| Confidence | Meaning |
+| --- | --- |
+| 2 | a mapped joint. The Kinect SDK calls this level "medium". |
+| 1 | nose and ears. The Kinect SDK calls this level "low, predicted". |
+| 0 | GEM-X marks the projection of the joint as invalid. |
+
+`orientation_wxyz` is always null, because the joint frames of SOMA differ from the joint frames of the Kinect SDK.
+
+At start, `skeleton.check_soma77` compares the joint list with the rig file of SOMA 0.3.3. The node stops if they
+differ.
+
+## Options
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `--camera SPEC` | required | `CAMERA[:color=NAME][:depth=NAME]`. Repeat it for several cameras. |
+| `--node NAME` | `gem_x` | the node's part of the topic and the name of its diagnostics status |
+| `--bodies-key KEY` | `{camera}/{node}/bodies` | the topic of the bodies. The node fills in `{camera}` and `{node}`. |
+| `--no-depth-fit` | off | publish the distance that GEM-X estimates from the image alone |
+| `--autocast` | `bfloat16` | `bfloat16` or `none` (float32) for GEM-X |
+| `--detector-device` | `cuda` | `cuda` or `cpu` for YOLOX |
+| `--min-score` | 0.5 | the least score of a person. Live: it changes while the node runs. |
+| `--min-height PX` | 60 | the least height of a person's box. Live: it changes while the node runs. |
+| `--max-persons N` | 6 | the most persons per frame. Live: it changes while the node runs. |
+| `--gate M` | 0.08 | the gate of the depth fit in metres. Live: it changes while the node runs. |
+| `--max-offset-ms MS` | half the frame period of the depth stream | the largest stamp difference between a colour frame and its depth frame. `0` accepts only equal stamps. |
+| `--history N` | 10 | the number of frames that the node keeps per stream for the pairing |
+| `--device` | `cuda` | the CUDA device of GEM-X and YOLOX |
+| `--max-hz HZ` | 20 | the most colour frames per second. `0` or `none` means every frame. |
+| `--local` | `auto` | `auto`, `shm` or `cuda`, see below |
+| `--connect`, `--listen`, `--zenoh-mode`, `--config` | the router of this PC | Durchblick's session options |
+
+**`--max-hz`.** A frame with two persons takes about 60 ms, so the default is 20. The limit applies to the colour
+frames. The node decodes a depth frame only for a colour frame that it takes.
+
+**`--max-offset-ms`.** The node pairs each colour frame with the nearest depth frame within this offset. The default
+is half the frame period of the depth stream, which the node measures. A camera that stamps depth and colour apart
+needs this. One Azure Kinect that we measured is an example, with 11 to 17 ms between the stamps.
+
+**`--local`.** This option selects how frames of a camera on the same host reach the node. A *CUDA ring* is a ring
+in GPU memory that the camera fills. A reader on the same GPU reads a frame from it without a copy to the CPU.
+With `auto`, the node reads the CUDA ring when the ring is on the node's GPU (`--device`). Otherwise it reads the
+host ring in shared memory. `shm` and `cuda` force one of the two. With `cuda`, the node stops when the camera
+offers no CUDA ring. The start log and every report name the transport of each stream.
+
+The node rejects a camera specification with a segmenter, a camera that appears twice and an invalid topic name.
+
+## Setup
+
+`tools/setup.sh` installs everything that the node needs. The node never downloads anything while it works. We
+checked this with the network refused.
+
+| Part | Source | How the version is fixed |
+| --- | --- | --- |
+| GEM-X's package `gem` | GitHub, NVlabs/GEM-X | a commit in `pyproject.toml` |
+| GEM-X Body Pose weights (3.5 GB) | Hugging Face, `nvidia/GEM-X` | `GEMX_REVISION` in `gemx.py` |
+| SOMA 0.3.3 body assets | Hugging Face, `nvidia/SOMA-X` | `SOMA_REVISION` in `gemx.py` |
+| YOLOX-X HumanArt | OpenMMLab's archive | its SHA-256 in `tools/setup.sh` |
+
+Two CUDA versions work in one process. PyTorch uses CUDA 13. The CUDA build of ONNX Runtime brings CUDA 12 libraries
+as `nvidia-*` wheels, and the node loads them before it creates the detector. We tested both in one process.
+
+SOMA computes its mesh with Warp, which compiles GPU kernels at the first use and caches them. The node sets the
+cache to `weights/warp-cache`.
+
+## Tests
+
+```bash
+.venv/bin/python -m pytest tests
+```
+
+| File | Needs | What it checks |
+| --- | --- | --- |
+| `tests/test_helpers.py` | CPU | the overlap of boxes and the ids of the tracker, the skeleton mapping and its JSON, the SOMA joints against the rig, the depth fit. The fit finds a shift with a third of the surface occluded. |
+| `tests/test_gemx.py` | a CUDA device and `weights/` | a body with the anatomy of a person, with the mapped joints where they belong. An empty image gives no person. |

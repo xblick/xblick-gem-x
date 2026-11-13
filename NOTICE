@@ -1,0 +1,13 @@
+durchblick-gem-x
+Copyright 2026 David Schneider
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Parts of others that the node uses. None of them is contained in this repository:
+
+- GEM-X code by NVIDIA (github.com/NVlabs/GEM-X), Apache License 2.0. Some of its hand files are under
+  OpenMDW-1.1, and the node does not use them. It is a Python dependency at a fixed commit.
+- GEM-X Body Pose weights by NVIDIA (Hugging Face nvidia/GEM-X), NVIDIA Open Model License.
+  tools/setup.sh downloads them into weights/.
+- SOMA body assets by NVIDIA (Hugging Face nvidia/SOMA-X), Apache License 2.0. tools/setup.sh downloads them.
+- YOLOX-X HumanArt person detector by OpenMMLab, Apache License 2.0. tools/setup.sh downloads it.

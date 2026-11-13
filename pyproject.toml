@@ -1,0 +1,51 @@
+[project]
+name = "durchblick-gem-x"
+version = "0.1.0"
+description = "GEM-X (people's 3D bodies from one image) on cameras with depth, as a Durchblick node: an alternative to the Azure Kinect's body tracking"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "David Schneider" }]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "blick>=0.4,<0.5",  # the Durchblick core: rgbd (the cameras' streams, pairing), node, logs, diagnostics, parameters
+    "gem",  # GEM-X's Body Pose (its own pins: transformers 5.3.0, py-soma-x 0.3.3)
+    "torch>=2.10",
+    "torchvision",
+    "numpy>=1.26",
+    "eclipse-zenoh>=1.10,<2",
+    # YOLOX on ONNX Runtime's CUDA build, with its CUDA 12 libraries from the nvidia-* wheels (beside torch's CUDA 13:
+    # tested in one process)
+    "onnxruntime-gpu[cuda,cudnn]>=1.23",
+]
+
+[project.scripts]
+durchblick-gem-x = "durchblick_gem_x.node:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6", "huggingface-hub>=0.24"]
+
+[build-system]
+requires = ["uv_build>=0.8,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
+
+[tool.uv.sources]
+"blick" = { git = "https://github.com/xblick/durchblick", branch = "main" }
+"gem" = { git = "https://github.com/NVlabs/GEM-X.git", rev = "20555befe2fbbe5b2015e1fff7ff214dc18ea9d6" }
+"torch" = { index = "pytorch-cu130" }
+"torchvision" = { index = "pytorch-cu130" }
+
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
