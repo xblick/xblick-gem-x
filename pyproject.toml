@@ -1,6 +1,6 @@
 [project]
-name = "durchblick-gem-x"
-version = "0.1.0"
+name = "xblick-gem-x"
+version = "0.2.0"
 description = "GEM-X (people's 3D bodies from one image) on cameras with depth, as a Durchblick node: an alternative to the Azure Kinect's body tracking"
 readme = "README.md"
 license = "Apache-2.0"
@@ -8,7 +8,8 @@ license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "David Schneider" }]
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "blick>=0.4,<0.5",  # the Durchblick core: rgbd (the cameras' streams, pairing), node, logs, diagnostics, parameters
+    # the Durchblick core: rgbd (the cameras' streams, pairing), node, logs, diagnostics, parameters
+    "xblick>=0.5.0,<0.6",
     "gem",  # GEM-X's Body Pose (its own pins: transformers 5.3.0, py-soma-x 0.3.3)
     "torch>=2.10",
     "torchvision",
@@ -20,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-durchblick-gem-x = "durchblick_gem_x.node:main"
+xblick-gem-x = "xblick_gem_x.node:main"
 
 [dependency-groups]
 dev = ["pytest>=8", "ruff>=0.6", "huggingface-hub>=0.24"]
@@ -33,7 +34,7 @@ build-backend = "uv_build"
 index-strategy = "unsafe-best-match"
 
 [tool.uv.sources]
-"blick" = { git = "https://github.com/xblick/durchblick", branch = "main" }
+"xblick" = { git = "https://github.com/xblick/xblick.git", rev = "45908e67465647b39a6b185665bd91da175924ca" }
 "gem" = { git = "https://github.com/NVlabs/GEM-X.git", rev = "20555befe2fbbe5b2015e1fff7ff214dc18ea9d6" }
 "torch" = { index = "pytorch-cu130" }
 "torchvision" = { index = "pytorch-cu130" }

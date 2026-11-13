@@ -31,17 +31,6 @@ wheels = [
 ]
 
 [[package]]
-name = "blick"
-version = "0.4.0"
-source = { git = "https://github.com/xblick/durchblick?branch=main#d0f665007f684b707fb0b18b01c65d76348769c5" }
-dependencies = [
-    { name = "eclipse-zenoh" },
-    { name = "numpy" },
-    { name = "pillow" },
-    { name = "textual" },
-]
-
-[[package]]
 name = "certifi"
 version = "2026.10.23"
 source = { registry = "https://pypi.org/simple" }
@@ -147,45 +136,6 @@ nvrtc = [
 ]
 nvtx = [
     { name = "nvidia-nvtx", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
-]
-
-[[package]]
-name = "durchblick-gem-x"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "blick" },
-    { name = "eclipse-zenoh" },
-    { name = "gem" },
-    { name = "numpy" },
-    { name = "onnxruntime-gpu", extra = ["cuda", "cudnn"] },
-    { name = "torch" },
-    { name = "torchvision" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "huggingface-hub" },
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "blick", git = "https://github.com/xblick/durchblick?branch=main" },
-    { name = "eclipse-zenoh", specifier = ">=1.10,<2" },
-    { name = "gem", git = "https://github.com/NVlabs/GEM-X.git?rev=20555befe2fbbe5b2015e1fff7ff214dc18ea9d6" },
-    { name = "numpy", specifier = ">=1.26" },
-    { name = "onnxruntime-gpu", extras = ["cuda", "cudnn"], specifier = ">=1.23" },
-    { name = "torch", specifier = ">=2.10", index = "https://download.pytorch.org/whl/cu130" },
-    { name = "torchvision", index = "https://download.pytorch.org/whl/cu130" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "huggingface-hub", specifier = ">=0.24" },
-    { name = "pytest", specifier = ">=8" },
-    { name = "ruff", specifier = ">=0.6" },
 ]
 
 [[package]]
@@ -1143,4 +1093,54 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/13/69/5fc4388c6af4c78cd247776bb6928cabe83d893896444dd2127ccbe8b2ca/warp_lang-1.18.0-py3-none-manylinux_2_28_x86_64.whl", hash = "sha256:090962bfae7dd22ade0d8e0258f41635e0e58980f15bcc9e7a7d312819dfe440", size = 148811186, upload-time = "2026-10-05T00:23:01.197Z" },
     { url = "https://files.pythonhosted.org/packages/be/41/6e255904a10cd1b3b1a61cc9ac21551812ffc55b1c68324de4c0c24a6660/warp_lang-1.18.0-py3-none-manylinux_2_34_aarch64.whl", hash = "sha256:d76ab8c7d4f4897405fa0a744d38812fc44cfc8162c40e658dc9ca7790b6a645", size = 147348850, upload-time = "2026-10-05T00:23:31.015Z" },
     { url = "https://files.pythonhosted.org/packages/3e/75/888dfe20326fea1a3b46b68a239ccd5db717bb039d511ab6fca7c77e6fea/warp_lang-1.18.0-py3-none-win_amd64.whl", hash = "sha256:1769e55746739f2e244a2b412123003c462ec3d977dfb5f420f924a8553d30aa", size = 134607061, upload-time = "2026-10-05T00:23:56.792Z" },
+]
+
+[[package]]
+name = "xblick"
+version = "0.5.0"
+source = { git = "https://github.com/xblick/xblick.git?rev=45908e67465647b39a6b185665bd91da175924ca#45908e67465647b39a6b185665bd91da175924ca" }
+dependencies = [
+    { name = "eclipse-zenoh" },
+    { name = "numpy" },
+    { name = "pillow" },
+    { name = "textual" },
+]
+
+[[package]]
+name = "xblick-gem-x"
+version = "0.2.0"
+source = { editable = "." }
+dependencies = [
+    { name = "eclipse-zenoh" },
+    { name = "gem" },
+    { name = "numpy" },
+    { name = "onnxruntime-gpu", extra = ["cuda", "cudnn"] },
+    { name = "torch" },
+    { name = "torchvision" },
+    { name = "xblick" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "huggingface-hub" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "eclipse-zenoh", specifier = ">=1.10,<2" },
+    { name = "gem", git = "https://github.com/NVlabs/GEM-X.git?rev=20555befe2fbbe5b2015e1fff7ff214dc18ea9d6" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "onnxruntime-gpu", extras = ["cuda", "cudnn"], specifier = ">=1.23" },
+    { name = "torch", specifier = ">=2.10", index = "https://download.pytorch.org/whl/cu130" },
+    { name = "torchvision", index = "https://download.pytorch.org/whl/cu130" },
+    { name = "xblick", git = "https://github.com/xblick/xblick.git?rev=45908e67465647b39a6b185665bd91da175924ca" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "huggingface-hub", specifier = ">=0.24" },
+    { name = "pytest", specifier = ">=8" },
+    { name = "ruff", specifier = ">=0.6" },
 ]

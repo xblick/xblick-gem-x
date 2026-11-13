@@ -1,6 +1,6 @@
 # Accuracy and speed
 
-This page reports the one test of durchblick-gem-x so far. The test is synthetic, because we had no recording of
+This page reports the one test of xblick-gem-x so far. The test is synthetic, because we had no recording of
 people with depth.
 
 ## Setup

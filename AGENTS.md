@@ -1,10 +1,10 @@
 # AGENTS.md
 
-durchblick-gem-x: NVIDIA's GEM-X Body Pose as a Durchblick node. 3D bodies of people from any colour camera with
-depth, published in the Azure Kinect tracker's JSON. Version 0.1.0, tested only on a synthetic RGB-D recording.
+xblick-gem-x: NVIDIA's GEM-X Body Pose as a Durchblick node. 3D bodies of people from any colour camera with
+depth, published in the Azure Kinect tracker's JSON. Version 0.2.0, tested only on a synthetic RGB-D recording.
 Human documentation: `README.md` (topics, options, limits), `docs/design.md` (steps, message, setup),
 `docs/performance.md`. Transport-wide traps (Zenoh sessions, CUDA rings, looped playback, hanging
-tests) are in the core's `AGENTS.md` (github.com/xblick/durchblick). Style of all documentation: the core's
+tests) are in the core's `AGENTS.md` (github.com/xblick/xblick). Style of all documentation: the core's
 `docs/project/writing-docs.md`.
 
 ## Commands
@@ -14,17 +14,17 @@ tools/setup.sh                                   # uv sync --frozen, GEM-X/SOMA 
 .venv/bin/python -m pytest tests                 # 8 tests; test_gemx.py needs a CUDA device and weights/
 .venv/bin/python -m pytest tests/test_helpers.py # CPU: tracker, skeleton mapping, SOMA rig check, depth fit
 .venv/bin/ruff check src tests                   # lint; 120 columns, rules in pyproject.toml
-.venv/bin/durchblick-gem-x --camera robot/camera:depth=depth_to_color   # needs zenohd on the PC
+.venv/bin/xblick-gem-x --camera robot/camera:depth=depth_to_color   # needs zenohd on the PC
 ```
 
-- Console script: `durchblick-gem-x`.
+- Console script: `xblick-gem-x`.
 - `tools/setup.sh` needs uv (`UV` names it), git, curl, unzip. It downloads only what is
   missing (3.5 GB of GEM-X weights on the first call).
 - Durations: not recorded.
-- Without a camera: `blick play <recording.mcap> --loop` of an RGB-D recording with people. None existed when the
+- Without a camera: `xblick play <recording.mcap> --loop` of an RGB-D recording with people. None existed when the
   node was written; the test in `docs/performance.md` is synthetic.
-- rc_visard example: `--camera robot/rc_visard:color=left:depth=ffs/depth` (needs durchblick-fast-foundationstereo).
-- `blick rerun` draws the bodies in 3D and over the colour stream.
+- rc_visard example: `--camera robot/rc_visard:color=left:depth=ffs/depth` (needs xblick-fast-foundationstereo).
+- `xblick rerun` draws the bodies in 3D and over the colour stream.
 
 ## Rules
 
@@ -32,10 +32,10 @@ tools/setup.sh                                   # uv sync --frozen, GEM-X/SOMA 
   segmenter: raise with a message that says what to do.
 - Work offline. `gem` is pinned to a git commit in `pyproject.toml`. Weights come at fixed revisions
   (`gemx.GEMX_REVISION`, `SOMA_REVISION`) or by SHA-256 (YOLOX) through `tools/setup.sh`. Fetch nothing at run time.
-- Treat the bodies JSON as a contract. Its layout is durchblick-azure-kinect's (`skeleton.py`). Readers (the core's
+- Treat the bodies JSON as a contract. Its layout is xblick-azure-kinect's (`skeleton.py`). Readers (the core's
   Rerun bridge, other readers of the Azure Kinect bodies) take either. Change it only together with them.
-- Durchblick pin: `blick>=0.4,<0.5`, the core's Python package (`blick.rgbd` with `max_hz` and `max_offset_ns`, `blick.node`,
-  `CountedPublisher` for the attachment).
+- Durchblick pin: `xblick>=0.5.0,<0.6`, the core's Python package (`xblick.rgbd` with `max_hz` and `max_offset_ns`,
+  `xblick.node`, `CountedPublisher` for the attachment).
 - 120 columns. Docstrings say what, comments say why.
 - Update `README.md` and `docs/` with every change of behaviour.
 - Run GPU tests and live checks in the background with `timeout`. Stop them by PID.
@@ -59,11 +59,11 @@ tools/setup.sh                                   # uv sync --frozen, GEM-X/SOMA 
 
 | Path | Content |
 | --- | --- |
-| `src/durchblick_gem_x/node.py` | the node: cameras, per-frame pipeline, publishing, diagnostics |
-| `src/durchblick_gem_x/gemx.py` | `GemX` (Body Pose, weights and revisions), `PersonDetector` (YOLOX on ONNX Runtime) |
-| `src/durchblick_gem_x/tracking.py` | person ids by box overlap |
-| `src/durchblick_gem_x/depth.py` | the depth fit along the hips ray |
-| `src/durchblick_gem_x/skeleton.py` | SOMA 77 -> K4ABT_BODY_32, the bodies JSON |
+| `src/xblick_gem_x/node.py` | the node: cameras, per-frame pipeline, publishing, diagnostics |
+| `src/xblick_gem_x/gemx.py` | `GemX` (Body Pose, weights and revisions), `PersonDetector` (YOLOX on ONNX Runtime) |
+| `src/xblick_gem_x/tracking.py` | person ids by box overlap |
+| `src/xblick_gem_x/depth.py` | the depth fit along the hips ray |
+| `src/xblick_gem_x/skeleton.py` | SOMA 77 -> K4ABT_BODY_32, the bodies JSON |
 | `weights/` | GEM-X, `soma/`, `yolox_humanart.onnx` (`tools/setup.sh`), `warp-cache/` (Warp). Not in git. |
 | `tests/` | `test_helpers.py` (CPU), `test_gemx.py` (GPU) |
 | `tools/setup.sh` | venv and weights |
@@ -72,7 +72,7 @@ tools/setup.sh                                   # uv sync --frozen, GEM-X/SOMA 
 
 | What | Value |
 | --- | --- |
-| Inputs | `<camera>/<color>`, `<camera>/<depth>` (16UC1 mm) through `blick.rgbd` |
+| Inputs | `<camera>/<color>`, `<camera>/<depth>` (16UC1 mm) through `xblick.rgbd` |
 | Bodies topic | `<camera>/gem_x/bodies` (`--bodies-key {camera}/{node}/bodies`), JSON, `source` `gem-x` |
 | Diagnostics | `<camera>/diagnostics`, status `gem_x`, once per second |
 | `--max-hz` | 20 |

@@ -1,5 +1,5 @@
 """The skeletons: GEM-X's 77 SOMA joints (``SOMA77``: the SOMA 0.3.3 rig's joints without its root and its twist
-joints, in the rig's order; ``check_soma77`` compares with the rig) and their mapping to durchblick-azure-kinect's body
+joints, in the rig's order; ``check_soma77`` compares with the rig) and their mapping to xblick-azure-kinect's body
 tracking (pose model K4ABT_BODY_32), so that this node's bodies go wherever the Azure Kinect's go: the
 same JSON on ``<camera>/<node>/bodies``.
 
@@ -36,7 +36,7 @@ SOMA77 = (
 )
 assert len(SOMA77) == 77
 
-K4ABT_BODY_32 = (  # the Body Tracking SDK's joint order (k4abt_joint_id_t), the names of durchblick-azure-kinect's JSON
+K4ABT_BODY_32 = (  # the Body Tracking SDK's joint order (k4abt_joint_id_t), the names of xblick-azure-kinect's JSON
     "Pelvis", "SpineNaval", "SpineChest", "Neck", "ClavicleLeft", "ShoulderLeft", "ElbowLeft", "WristLeft", "HandLeft",
     "HandtipLeft", "ThumbLeft", "ClavicleRight", "ShoulderRight", "ElbowRight", "WristRight", "HandRight",
     "HandtipRight", "ThumbRight", "HipLeft", "KneeLeft", "AnkleLeft", "FootLeft", "HipRight", "KneeRight",
@@ -93,7 +93,7 @@ def k4abt_joints(joints: np.ndarray, valid: np.ndarray) -> np.ndarray:
 
 
 def bodies_message(stamp_ns: int, frame_id: str, latency_ms: float, bodies: list[dict]) -> bytes:
-    """durchblick-azure-kinect's bodies JSON (model K4ABT_BODY_32, positions in mm in ``frame_id``); per body also
+    """xblick-azure-kinect's bodies JSON (model K4ABT_BODY_32, positions in mm in ``frame_id``); per body also
     ``soma77_mm`` (GEM-X's own 77 joints, SOMA77's order) and ``depth_fit`` (the depth correction, depth.py).
     ``bodies``: dicts of id, joints (77, 3) [m], valid (77,), depth_fit (dict)."""
     out = []

@@ -1,17 +1,17 @@
-"""durchblick-gem-x: people's 3D bodies from cameras with depth by GEM-X (gemx.py), an alternative to the Azure
-Kinect's body tracking (durchblick-azure-kinect's durchblick-k4abt) that runs on any colour camera with depth.
+"""xblick-gem-x: people's 3D bodies from cameras with depth by GEM-X (gemx.py), an alternative to the Azure
+Kinect's body tracking (xblick-azure-kinect's xblick-k4abt) that runs on any colour camera with depth.
 
-    durchblick-gem-x --camera CAMERA[:color=NAME][:depth=NAME] [--camera ...] [--node gem_x]
+    xblick-gem-x --camera CAMERA[:color=NAME][:depth=NAME] [--camera ...] [--node gem_x]
                      [--bodies-key KEY] [--no-depth-fit] [--autocast none]
 
 A camera is ``<CAMERA>/<color>`` and ``<CAMERA>/<depth>`` (16UC1 mm in the colour camera's geometry), paired by stamp,
-at the depth's resolution, undistorted (blick.rgbd). Per frame: YOLOX's persons (boxes at least --min-height px
+at the depth's resolution, undistorted (xblick.rgbd). Per frame: YOLOX's persons (boxes at least --min-height px
 tall, score over --min-score), matched to the persons of the frames before by their boxes' overlap (tracking.py: an id
 per person); GEM-X's body of each (one batch); each body moved along its ray until its visible surface lies on the
 measured depth (depth.py; ``--no-depth-fit``: GEM-X's monocular distance as it is).
 
 Published per camera, stamped as the frame: ``--bodies-key`` (default ``<CAMERA>/<node>/bodies``; ``{camera}`` and
-``{node}`` are filled in), JSON as durchblick-azure-kinect's bodies (skeleton.py: model K4ABT_BODY_32, positions in mm
+``{node}`` are filled in), JSON as xblick-azure-kinect's bodies (skeleton.py: model K4ABT_BODY_32, positions in mm
 in the colour camera's frame; also each body's SOMA joints and its depth fit). With ``--bodies-key {camera}/bodies``
 it stands in for the Azure Kinect's tracker for its readers (Durchblick's Rerun bridge, ...): run one of the two.
 """
@@ -26,10 +26,10 @@ from dataclasses import dataclass
 
 import numpy as np
 import zenoh
-from blick import node, topics
-from blick.camera import CountedPublisher
-from blick.rgbd import CameraSpec, FramePreparer, RGBDInputs
-from blick.session import add_arguments, open_from_args
+from xblick import node, topics
+from xblick.camera import CountedPublisher
+from xblick.rgbd import CameraSpec, FramePreparer, RGBDInputs
+from xblick.session import add_arguments, open_from_args
 
 NODE = "gem_x"
 
@@ -41,7 +41,7 @@ class Camera:
     prepare: FramePreparer
     publisher: object
     tracker: object
-    report: object  # blick.node.Reporter
+    report: object  # xblick.node.Reporter
     last_stamp: int | None = None
 
 
@@ -53,7 +53,7 @@ LIVE = {"min_score": {"range": (0.0, 1.0, 0.01)},
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(prog="durchblick-gem-x", description=__doc__,
+    parser = argparse.ArgumentParser(prog="xblick-gem-x", description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--camera", action="append", required=True, metavar="SPEC",
                         help="CAMERA[:color=NAME][:depth=NAME] (repeated)")
@@ -100,7 +100,7 @@ def main(argv=None) -> int:
         parser.error("--camera: a camera given twice")
 
     # SOMA's skinning: torch's notes on sparse tensors (beta, invariant checks) at the first frame
-    node.start("durchblick-gem-x", ignore=["Sparse CSR tensor support is in beta", "Sparse invariant checks",
+    node.start("xblick-gem-x", ignore=["Sparse CSR tensor support is in beta", "Sparse invariant checks",
                                       "Validating sparse tensor invariants"], max_hz=args.max_hz, local=args.local)
 
     import onnxruntime  # noqa: PLC0415
@@ -119,7 +119,7 @@ def main(argv=None) -> int:
     if device.index is None:
         device = torch.device("cuda", torch.cuda.current_device())
     torch.cuda.set_device(device)
-    print("durchblick-gem-x: loading GEM-X and YOLOX", flush=True)
+    print("xblick-gem-x: loading GEM-X and YOLOX", flush=True)
     gemx = GemX(device, autocast=None if args.autocast == "none" else args.autocast)
     detector = PersonDetector(device=f"cuda:{device.index}" if args.detector_device == "cuda" else "cpu",
                               score=args.min_score)
@@ -130,14 +130,14 @@ def main(argv=None) -> int:
         # colour limited to --max-hz, its depth the nearest within --max-offset-ms (decoded only for colour taken)
         inputs = RGBDInputs(session, spec, args.history, args.local, wake, max_hz=args.max_hz, device=device,
                             max_offset_ns=None if args.max_offset_ms is None else round(args.max_offset_ms * 1e6))
-        report = node.Reporter(session, spec.camera, args.node, "durchblick-gem-x", log_prefix=f"{spec.camera}: ",
+        report = node.Reporter(session, spec.camera, args.node, "xblick-gem-x", log_prefix=f"{spec.camera}: ",
                                max_hz=args.max_hz)
         report.watch(inputs)
         # the attachment (seq, publish_ns) as every Durchblick sample has it: the bodies' age at send
         cameras.append(Camera(spec, inputs, FramePreparer(device),
                               CountedPublisher(session, key, zenoh.Encoding.APPLICATION_JSON, source="gem-x"),
                               Tracker(), report))
-        print(f"durchblick-gem-x: {spec} -> {key}", flush=True)
+        print(f"xblick-gem-x: {spec} -> {key}", flush=True)
 
     def process(camera: Camera, frame, stamp: int):
         started = time.monotonic()

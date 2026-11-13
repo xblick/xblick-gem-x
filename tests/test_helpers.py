@@ -7,10 +7,10 @@ import numpy as np
 import pytest
 import torch
 
-from durchblick_gem_x.depth import fit_depth, moved, visible_depth
-from durchblick_gem_x.gemx import WEIGHTS, square_boxes
-from durchblick_gem_x.skeleton import INDEX, K4ABT_BODY_32, SOMA77, bodies_message, check_soma77, k4abt_joints
-from durchblick_gem_x.tracking import Tracker, iou
+from xblick_gem_x.depth import fit_depth, moved, visible_depth
+from xblick_gem_x.gemx import WEIGHTS, square_boxes
+from xblick_gem_x.skeleton import INDEX, K4ABT_BODY_32, SOMA77, bodies_message, check_soma77, k4abt_joints
+from xblick_gem_x.tracking import Tracker, iou
 
 K = np.array([[500.0, 0, 319.5], [0, 500.0, 239.5], [0, 0, 1]])
 

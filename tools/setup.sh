@@ -1,5 +1,5 @@
 #!/bin/bash
-# Sets durchblick-gem-x up from scratch or updates it:
+# Sets xblick-gem-x up from scratch or updates it:
 #
 # * the venv exactly as uv.lock fixes it (.venv; GEM-X's package from GitHub at a fixed commit)
 # * the weights in weights/ (only if missing; the node runs offline): GEM-X's Body Pose (Hugging Face nvidia/GEM-X,
@@ -21,7 +21,7 @@ YOLOX_SHA256=1c6fccc5cd450eb563b1fe4eba13c9bdf9ea8263b6ae1cb3ada765aa4ebea2c7
 mkdir -p weights/soma
 HF_HUB_OFFLINE=0 .venv/bin/python -c "
 from huggingface_hub import hf_hub_download
-from durchblick_gem_x.gemx import BODY_FILES, GEMX_REVISION, SOMA_FILES, SOMA_REVISION, WEIGHTS
+from xblick_gem_x.gemx import BODY_FILES, GEMX_REVISION, SOMA_FILES, SOMA_REVISION, WEIGHTS
 for f in BODY_FILES:
     if not (WEIGHTS / f).is_file():
         print(hf_hub_download('nvidia/GEM-X', f, revision=GEMX_REVISION, local_dir=WEIGHTS))
@@ -36,4 +36,4 @@ if [[ ! -f weights/yolox_humanart.onnx ]]; then
     mv weights/yolox_humanart.onnx.tmp weights/yolox_humanart.onnx
     rm weights/yolox_humanart.zip.tmp
 fi
-echo "durchblick-gem-x: set up; weights in weights/"
+echo "xblick-gem-x: set up; weights in weights/"

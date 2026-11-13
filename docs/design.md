@@ -1,6 +1,6 @@
 # How the node works
 
-This page describes the four steps that durchblick-gem-x executes per frame, the bodies message, all options, the
+This page describes the four steps that xblick-gem-x executes per frame, the bodies message, all options, the
 setup and the tests.
 
 ## The steps per frame
@@ -15,7 +15,7 @@ flowchart LR
   F --> M[bodies message]
 ```
 
-The node reads each camera through `blick.rgbd`. This module pairs a colour frame with a depth frame by their
+The node reads each camera through `xblick.rgbd`. This module pairs a colour frame with a depth frame by their
 stamps. It scales the colour frame to the resolution of the depth frame and removes the lens distortion.
 
 ### 1. Persons
@@ -69,7 +69,7 @@ of GEM-X, and `depth_fit` is null. `--no-depth-fit` switches the fit off for all
 
 ## The bodies message
 
-The message is JSON with the encoding `application/json`. It has the layout of durchblick-azure-kinect's bodies, so a
+The message is JSON with the encoding `application/json`. It has the layout of xblick-azure-kinect's bodies, so a
 reader of that topic can read both. One reader is Durchblick's Rerun bridge. Change the layout only together
 with its readers.
 
@@ -96,7 +96,7 @@ the gate. `residual_m` is the median absolute difference of the inliers after th
 
 Each sample also has Durchblick's attachment with `seq` and `publish_ns`, so a reader knows the age of the bodies at
 the time of sending. Durchblick's page on
-[timestamps](https://github.com/xblick/durchblick/blob/main/docs/concepts/timestamps.md) explains
+[timestamps](https://github.com/xblick/xblick/blob/main/docs/concepts/timestamps.md) explains
 the attachment.
 
 ### From 77 SOMA joints to 32 Kinect joints

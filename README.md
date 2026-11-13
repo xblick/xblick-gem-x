@@ -1,13 +1,13 @@
-# durchblick-gem-x
+# xblick-gem-x
 
-This [Durchblick](https://github.com/xblick/durchblick) node computes the 3D bodies of the people in
+This [Durchblick](https://github.com/xblick/xblick) node computes the 3D bodies of the people in
 front of a colour camera with depth. It takes about 60 ms per frame with two persons, so it keeps up with a camera at
 10 frames per second.
 
 The node uses [GEM-X](https://github.com/NVlabs/GEM-X), a model from NVIDIA (2026) that estimates full-body and hand
 pose from images and video. GEM-X works on SOMA, NVIDIA's parametric body model with 77 joints and a mesh of 18,000
-vertices. The node is an alternative to the body tracking of the Azure Kinect (`durchblick-k4abt` in
-durchblick-azure-kinect). It needs neither that camera nor its SDK, and it publishes its bodies in the same JSON
+vertices. The node is an alternative to the body tracking of the Azure Kinect (`xblick-k4abt` in
+xblick-azure-kinect). It needs neither that camera nor its SDK, and it publishes its bodies in the same JSON
 layout.
 
 ## What it publishes
@@ -16,10 +16,10 @@ The node publishes one message per processed frame and camera. The message has t
 
 | Topic | Message type | Content |
 | --- | --- | --- |
-| `<camera>/gem_x/bodies` | JSON, the layout of durchblick-azure-kinect's bodies | model `K4ABT_BODY_32`: per body an id and 32 joints in mm in the frame of the colour camera. Each body also has `soma77_mm` with all 77 SOMA joints and `depth_fit` with the result of the depth fit. |
+| `<camera>/gem_x/bodies` | JSON, the layout of xblick-azure-kinect's bodies | model `K4ABT_BODY_32`: per body an id and 32 joints in mm in the frame of the colour camera. Each body also has `soma77_mm` with all 77 SOMA joints and `depth_fit` with the result of the depth fit. |
 | `<camera>/diagnostics` | `diagnostic_msgs/DiagnosticArray` | status `gem_x` once per second: frames per second, bodies per frame, ms per frame, the streams in use |
 
-`--bodies-key` changes the topic of the bodies, and `--node` changes the `gem_x` part. `blick rerun` draws the
+`--bodies-key` changes the topic of the bodies, and `--node` changes the `gem_x` part. `xblick rerun` draws the
 bodies as skeletons in 3D and over the colour stream.
 
 The node reads `<camera>/<color>` and `<camera>/<depth>`. The depth must be 16UC1 in mm in the geometry of the colour
@@ -31,7 +31,7 @@ camera. [How the node works](docs/design.md) describes the message and the four 
 | --- | --- |
 | GPU | an NVIDIA GPU with CUDA. We tested on an RTX PRO 6000. |
 | VRAM | 7.5 GiB with one person in view (the node alone, 1280 x 720 at 30 frames per second, measured 2026-11-02) |
-| Durchblick | 0.4 or newer, below 0.5 (Python package `blick`) |
+| Durchblick | 0.5 or newer, below 0.6 (Python package `xblick`) |
 | Python | 3.12, which `tools/setup.sh` installs into `.venv` |
 | Tools for the setup | uv, git, curl and unzip |
 | Disk | 3.5 GB for the GEM-X weights, plus the SOMA assets and the detector |
@@ -61,15 +61,15 @@ what is missing, so you can run it again after an update. The node itself never 
 Start a Zenoh router (`zenohd`) on the PC, then start the node for one camera. The camera names below are examples.
 
 ```bash
-.venv/bin/durchblick-gem-x --camera robot/camera:depth=depth_to_color
+.venv/bin/xblick-gem-x --camera robot/camera:depth=depth_to_color
 ```
 
 A camera specification has the form `CAMERA[:color=NAME][:depth=NAME]`. Repeat `--camera` for several cameras. The
-second example reads a stereo camera whose depth comes from durchblick-fast-foundationstereo, and it publishes the
+second example reads a stereo camera whose depth comes from xblick-fast-foundationstereo, and it publishes the
 bodies on the topic of the Azure Kinect tracker.
 
 ```bash
-.venv/bin/durchblick-gem-x --camera robot/rc_visard:color=left:depth=ffs/depth --bodies-key "{camera}/bodies"
+.venv/bin/xblick-gem-x --camera robot/rc_visard:color=left:depth=ffs/depth --bodies-key "{camera}/bodies"
 ```
 
 With `--bodies-key "{camera}/bodies"` the node replaces the Azure Kinect tracker for the readers of that topic. Run
@@ -85,9 +85,9 @@ only one of the two on a camera.
 | `--max-persons N` | 6 | process only the N largest persons of a frame. Live: it changes while the node runs. |
 | `--local` | `auto` | how frames of a camera on this host reach the node: `auto`, `shm` or `cuda` |
 
-`.venv/bin/durchblick-gem-x --help` lists all options, and [How the node works](docs/design.md) explains them.
+`.venv/bin/xblick-gem-x --help` lists all options, and [How the node works](docs/design.md) explains them.
 
-Every option is also a parameter of the node `gem_x`, which Durchblick's terminal interface (`blick`, tab Parameters) and `blick param` show. `min_score`, `min_height`, `max_persons` and `gate` change while the node runs. The other options apply at the next start, where `--param NAME:=VALUE` or `--params-file FILE` set them.
+Every option is also a parameter of the node `gem_x`, which Durchblick's terminal interface (`xblick`, tab Parameters) and `xblick param` show. `min_score`, `min_height`, `max_persons` and `gate` change while the node runs. The other options apply at the next start, where `--param NAME:=VALUE` or `--params-file FILE` set them.
 
 ## Why it is fast
 
@@ -117,11 +117,11 @@ The node needs 59 to 60 ms per frame with two persons on an RTX PRO 6000.
 
 - [How the node works](docs/design.md): the four steps per frame, the bodies message, the options, the tests
 - [Accuracy and speed](docs/performance.md): the synthetic test and the timings
-- Durchblick: [streams and topics](https://github.com/xblick/durchblick/blob/main/docs/concepts/streams-and-topics.md),
-  [pairing streams](https://github.com/xblick/durchblick/blob/main/docs/guides/pairing-streams.md),
-  [transports](https://github.com/xblick/durchblick/blob/main/docs/concepts/transports.md),
-  [timestamps](https://github.com/xblick/durchblick/blob/main/docs/concepts/timestamps.md),
-  [sessions and routers](https://github.com/xblick/durchblick/blob/main/docs/concepts/sessions.md)
+- Durchblick: [streams and topics](https://github.com/xblick/xblick/blob/main/docs/concepts/streams-and-topics.md),
+  [pairing streams](https://github.com/xblick/xblick/blob/main/docs/guides/pairing-streams.md),
+  [transports](https://github.com/xblick/xblick/blob/main/docs/concepts/transports.md),
+  [timestamps](https://github.com/xblick/xblick/blob/main/docs/concepts/timestamps.md),
+  [sessions and routers](https://github.com/xblick/xblick/blob/main/docs/concepts/sessions.md)
 
 ## Licence and credits
 
