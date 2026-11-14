@@ -1,7 +1,7 @@
 # AGENTS.md
 
 xblick-gem-x: NVIDIA's GEM-X Body Pose as a Durchblick node. 3D bodies of people from any colour camera with
-depth, published in the Azure Kinect tracker's JSON. Version 0.2.1, tested only on a synthetic RGB-D recording.
+depth, published in the Azure Kinect tracker's JSON. Version 0.2.2, tested only on a synthetic RGB-D recording.
 Human documentation: `README.md` (topics, options, limits), `docs/design.md` (steps, message, setup),
 `docs/performance.md`. Transport-wide traps (Zenoh sessions, CUDA rings, looped playback, hanging
 tests) are in the core's `AGENTS.md` (github.com/xblick/xblick). Style of all documentation: the core's
@@ -10,17 +10,19 @@ tests) are in the core's `AGENTS.md` (github.com/xblick/xblick). Style of all do
 ## Commands
 
 ```bash
-tools/setup.sh                                   # uv sync --frozen, GEM-X/SOMA weights (fixed revisions), YOLOX
-.venv/bin/python -m pytest tests                 # 8 tests; test_gemx.py needs a CUDA device and weights/
+tools/setup.sh                                   # uv sync --frozen, then xblick-gem-x --download-only
+.venv/bin/python -m pytest tests                 # 30 tests; test_gemx.py needs a CUDA device and weights/
+.venv/bin/python -m pytest tests/test_weights.py # CPU, 12 s: downloads from a local HTTP server
+.venv/bin/xblick-gem-x --download-only           # GEM-X/SOMA (fixed revisions), YOLOX (archive SHA-256) if missing
 .venv/bin/python -m pytest tests/test_helpers.py # CPU: tracker, skeleton mapping, SOMA rig check, depth fit
 .venv/bin/ruff check src tests                   # lint; 120 columns, rules in pyproject.toml
 .venv/bin/xblick-gem-x --camera cam/azurekinect:depth=depth_to_color   # needs zenohd on the PC
 ```
 
 - Console script: `xblick-gem-x`.
-- `tools/setup.sh` needs uv (`UV` names it), git, curl, unzip. It downloads only what is
-  missing (3.5 GB of GEM-X weights on the first call). Before a download it prints the models'
-  terms.
+- `tools/setup.sh` needs uv (`UV` names it) and git. `--download-only` downloads only what is missing (3.5 GB of
+  GEM-X weights on the first call). Before a download it prints the models' terms (`weights.TERMS`).
+- `--no-download`: a start with a missing file ends with one line (exit 1). Excludes `--download-only`.
 - Durations: not recorded.
 - Without a camera: `xblick play <recording.mcap> --loop` of an RGB-D recording with people. None existed when the
   node was written; the test in `docs/performance.md` is synthetic.
@@ -29,10 +31,14 @@ tools/setup.sh                                   # uv sync --frozen, GEM-X/SOMA 
 
 ## Rules
 
-- Fail fast. Missing weights, a SOMA rig that is not the expected one (`skeleton.check_soma77`), a camera spec with a
+- Fail fast. A SOMA rig that is not the expected one (`skeleton.check_soma77`), a camera spec with a
   segmenter: raise with a message that says what to do.
-- Work offline. `gem` is pinned to a git commit in `pyproject.toml`. Weights come at fixed revisions
-  (`gemx.GEMX_REVISION`, `SOMA_REVISION`) or by SHA-256 (YOLOX) through `tools/setup.sh`. Fetch nothing at run time.
+- Work offline once the weights are there. `gem` is pinned to a git commit in `pyproject.toml`. Weights come at fixed
+  revisions (`gemx.GEMX_REVISION`, `SOMA_REVISION`, the file lists in `gemx.py`) or by SHA-256 (YOLOX's archive,
+  `weights.py`). `weights.ensure` runs at the start before the models load; `--download-only` runs it alone. All
+  files there: no network, no file written (`test_weights.py` checks it). Fetch nothing while working.
+- Downloads: `<name>.part` in the target directory, renamed after the check, under the lock
+  `weights/.download.lock`. Never let a partial or unchecked file get its final name. No fallbacks.
 - Treat the bodies JSON as a contract. Its layout is xblick-azure-kinect's (`skeleton.py`). Readers (the core's
   Rerun bridge, other readers of the Azure Kinect bodies) take either. Change it only together with them.
 - Durchblick pin: `xblick>=0.5.0,<0.6`, the core's Python package (`xblick.rgbd` with `max_hz` and `max_offset_ns`,
@@ -54,6 +60,10 @@ tools/setup.sh                                   # uv sync --frozen, GEM-X/SOMA 
 | Depth geometry | the fit compares depth and mesh per pixel of the colour camera | Depth must be 16UC1 mm in the colour camera's geometry (Azure Kinect: `depth_to_color`). |
 | `--bodies-key {camera}/bodies` | the node publishes where the Azure Kinect tracker publishes | Run one of the two per camera, never both. |
 | Ids | a person returns with a new id | Ids end after 10 frames without their person and are not reused. |
+| `--download-only` and `--camera` | `--camera` is required for a start only. `weights.parse_args` lifts `required` when the token `--download-only` is spelled out (an abbreviation is not seen). | Spell it out. |
+| `download_only` as a parameter | `declare_options` would declare it. | It is in `leave_out`. `no_download` is a read-only parameter. |
+| Wrong SHA-256 of the YOLOX archive | `yolox_humanart.onnx.part.zip` stays, the error names it. | Remove it, start again. |
+| Interrupt during a download | Ctrl-C: exit 130, SIGTERM: exit 143 (`weights._stoppable` overrides `node.start`'s handler while downloading). The `.part` file is removed. | |
 | Zenoh sessions (core) | a session with only `--connect` does not listen, and the router does not route between such sessions | Start nodes without endpoints. They find the PC's router. |
 
 ## Layout
@@ -61,13 +71,14 @@ tools/setup.sh                                   # uv sync --frozen, GEM-X/SOMA 
 | Path | Content |
 | --- | --- |
 | `src/xblick_gem_x/node.py` | the node: cameras, per-frame pipeline, publishing, diagnostics |
+| `src/xblick_gem_x/weights.py` | `needed`, YOLOX's archive (`ZipMember`), `TERMS`, `ensure`, `--download-only`/`--no-download`; from `Weight` on the same in every node |
 | `src/xblick_gem_x/gemx.py` | `GemX` (Body Pose, weights and revisions), `PersonDetector` (YOLOX on ONNX Runtime) |
 | `src/xblick_gem_x/tracking.py` | person ids by box overlap |
 | `src/xblick_gem_x/depth.py` | the depth fit along the hips ray |
 | `src/xblick_gem_x/skeleton.py` | SOMA 77 -> K4ABT_BODY_32, the bodies JSON |
-| `weights/` | GEM-X, `soma/`, `yolox_humanart.onnx` (`tools/setup.sh`), `warp-cache/` (Warp). Not in git. |
-| `tests/` | `test_helpers.py` (CPU), `test_gemx.py` (GPU) |
-| `tools/setup.sh` | venv and weights |
+| `weights/` | GEM-X, `soma/`, `yolox_humanart.onnx` (downloaded by the node), `.download.lock`, `warp-cache/` (Warp). Not in git. |
+| `tests/` | `test_helpers.py`, `test_weights.py` (CPU), `test_gemx.py` (GPU) |
+| `tools/setup.sh` | venv, then `xblick-gem-x --download-only` |
 
 ## Defaults
 

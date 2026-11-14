@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.2 (2026-11-14)
+
+- The node downloads missing weights at its start, before the models load. It prints the models' terms, the files
+  and their size first. With all weights there it uses no network and writes no file.
+- `--download-only` downloads and checks the weights, then exits 0. It needs no camera, Zenoh router or GPU, and
+  `--camera` may be left out. `tools/setup.sh` calls it after `uv sync` and no longer needs curl or unzip.
+- `--no-download` ends a start at once when a weight file is missing and names it. It is a read-only parameter.
+- `weights.py` is the one list of the weight files: the names and revisions of `gemx.py`, YOLOX's archive with its
+  SHA-256 (moved from `tools/setup.sh`) and the models' terms (moved from `tools/setup.sh`, unchanged).
+- A download goes to `<name>.part` under the lock `weights/.download.lock` and gets its final name after the check.
+
 ## 0.2.1 (2026-11-14)
 
 `tools/setup.sh` prints the models' terms before it downloads one. The README no longer names a licence for the YOLOX-X HumanArt person detector: OpenMMLab states none

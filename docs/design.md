@@ -163,21 +163,50 @@ The node rejects a camera specification with a segmenter, a camera that appears 
 
 ## Setup
 
-`tools/setup.sh` installs everything that the node needs. The node never downloads anything while it works. We
-checked this with the network refused.
+`tools/setup.sh` installs the code. The node downloads its weights ("Weights" below). It downloads nothing while
+it works. We checked this with the network refused.
 
 | Part | Source | How the version is fixed |
 | --- | --- | --- |
 | GEM-X's package `gem` | GitHub, NVlabs/GEM-X | a commit in `pyproject.toml` |
 | GEM-X Body Pose weights (3.5 GB) | Hugging Face, `nvidia/GEM-X` | `GEMX_REVISION` in `gemx.py` |
 | SOMA 0.3.3 body assets | Hugging Face, `nvidia/SOMA-X` | `SOMA_REVISION` in `gemx.py` |
-| YOLOX-X HumanArt | OpenMMLab's archive | its SHA-256 in `tools/setup.sh` |
+| YOLOX-X HumanArt | OpenMMLab's archive | the archive's SHA-256 in `weights.py` |
 
 Two CUDA versions work in one process. PyTorch uses CUDA 13. The CUDA build of ONNX Runtime brings CUDA 12 libraries
 as `nvidia-*` wheels, and the node loads them before it creates the detector. We tested both in one process.
 
 SOMA computes its mesh with Warp, which compiles GPU kernels at the first use and caches them. The node sets the
 cache to `weights/warp-cache`.
+
+## Weights
+
+`weights.py` lists the files that the node reads. It takes the file names and revisions from `gemx.py` and adds the
+YOLOX archive, its SHA-256 and the sizes. The node and `tools/setup.sh` use this one list.
+
+At its start, before it loads the models, the node checks that every file exists. When all files exist, the node
+opens no network connection and writes no file, so it starts offline. When a file is missing, the node takes the
+lock `weights/.download.lock`. It prints the models' terms, the files and their size, and it downloads each file.
+The node writes a file as `<name>.part` in the same directory and renames it after the check. A file therefore has
+its final name only when it is complete. A second node that starts at the same time waits for the lock. It then
+finds the files and does not download them again.
+
+The check compares the length of a Hugging Face download with the length that the server announced. The fixed
+revision determines the content. The YOLOX archive goes to `yolox_humanart.onnx.part.zip`, and the node checks its
+SHA-256 before it takes `end2end.onnx` out of it. Then it removes the archive. A wrong SHA-256 keeps the archive,
+and the error names it. Remove it, then start again. The progress is a line that updates in place on a terminal. In
+a log file it is one line per tenth of the file.
+
+A failure ends the node with one line that says what to do. Ctrl-C or SIGTERM during a download end the node at
+once with the exit code 130 or 143. The node then removes the `.part` file and the archive.
+
+`--download-only` downloads and checks the files, then ends. It needs no camera, no Zenoh router and no GPU.
+`weights.parse_args` lifts the requirement of `--camera` when the command line contains `--download-only`.
+`--no-download` ends the node when a file is missing and names the file. It is a read-only parameter like every
+other start option. `--download-only` is a mode of the command line and has no parameter.
+
+The download sends `HF_TOKEN`, or the token of `hf auth login`, to Hugging Face only. `HF_ENDPOINT` changes the
+server, and `HF_HUB_OFFLINE=1` prevents the Hugging Face downloads.
 
 ## Tests
 
@@ -188,4 +217,5 @@ cache to `weights/warp-cache`.
 | File | Needs | What it checks |
 | --- | --- | --- |
 | `tests/test_helpers.py` | CPU | the overlap of boxes and the ids of the tracker, the skeleton mapping and its JSON, the SOMA joints against the rig, the depth fit. The fit finds a shift with a third of the surface occluded. |
+| `tests/test_weights.py` | CPU, a local HTTP server | the list of files, no network use when all files exist, a download through the Hugging Face path with its redirect, YOLOX out of its checked archive, a wrong checksum, Ctrl-C and SIGTERM, two processes at once, the progress in a log file, `--download-only` and `--no-download` |
 | `tests/test_gemx.py` | a CUDA device and `weights/` | a body with the anatomy of a person, with the mapped joints where they belong. An empty image gives no person. |

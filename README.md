@@ -35,7 +35,7 @@ camera. [How the node works](docs/design.md) describes the message and the four 
 | VRAM | 7.5 GiB with one person in view (the node alone, 1280 x 720 at 30 frames per second, measured 2026-11-02) |
 | Durchblick | 0.5 or newer, below 0.6 (Python package `xblick`) |
 | Python | 3.12, which `tools/setup.sh` installs into `.venv` |
-| Tools for the setup | uv, git, curl and unzip |
+| Tools for the setup | uv and git |
 | Disk | 3.5 GB for the GEM-X weights, plus the SOMA assets and the detector |
 
 Model licences:
@@ -47,7 +47,7 @@ Model licences:
 | SOMA body assets | Apache-2.0 |
 | YOLOX-X HumanArt person detector | Published by OpenMMLab, who state no licence for the model file. It comes from OpenMMLab's download and is separate from GEM-X, as in GEM-X's own instructions. It is trained on COCO and Human-Art, and Human-Art is offered for non-commercial purposes only: check whether you may use the detector for your purpose. |
 
-`tools/setup.sh` downloads all four. This repository contains no copy of them.
+The setup fetches the GEM-X code, and the node downloads the three others. This repository contains no copy of them.
 
 ## Install
 
@@ -55,10 +55,20 @@ Model licences:
 tools/setup.sh
 ```
 
-The script creates `.venv` exactly as `uv.lock` states and downloads the weights into `weights/`. It downloads only
-what is missing, so you can run it again after an update. The node itself never downloads anything.
+The script creates `.venv` exactly as `uv.lock` states. Then it runs `xblick-gem-x --download-only`, which
+downloads the weights into `weights/`. It downloads only what is missing, so you can run it again after an update.
 
-Before it downloads a model, the script prints the models' terms from the table above.
+The node itself also downloads missing weights at its start, before it loads the models. Before a download it
+prints the models' terms from the table above, the files and their size. A preparation script downloads without a
+start:
+
+```bash
+.venv/bin/xblick-gem-x --download-only
+```
+
+`--download-only` needs no camera, no Zenoh router and no GPU, and it exits with 0 when the weights are complete. A
+machine that must never start a download on its own, such as a robot, starts the node with `--no-download`. The
+node then ends at once when a file is missing, and it names the file.
 
 ## Run
 
@@ -88,10 +98,12 @@ only one of the two on a camera.
 | `--min-height PX` | 60 | ignore persons whose box is lower than this. Live: it changes while the node runs. |
 | `--max-persons N` | 6 | process only the N largest persons of a frame. Live: it changes while the node runs. |
 | `--local` | `auto` | how frames of a camera on this host reach the node: `auto`, `shm` or `cuda` |
+| `--no-download` | off | end at once when a weight file is missing. The node downloads nothing. |
+| `--download-only` | off | download the missing weights, check them and end. `--camera` may be left out. |
 
 `.venv/bin/xblick-gem-x --help` lists all options, and [How the node works](docs/design.md) explains them.
 
-Every option is also a parameter of the node `gem_x`, which Durchblick's terminal interface (`xblick`, tab Parameters) and `xblick param` show. `min_score`, `min_height`, `max_persons` and `gate` change while the node runs. The other options apply at the next start, where `--param NAME:=VALUE` or `--params-file FILE` set them.
+Every option is also a parameter of the node `gem_x`, which Durchblick's terminal interface (`xblick`, tab Parameters) and `xblick param` show. `min_score`, `min_height`, `max_persons` and `gate` change while the node runs. The other options apply at the next start, where `--param NAME:=VALUE` or `--params-file FILE` set them. `--download-only` is a mode of the command line and has no parameter.
 
 ## Why it is fast
 
@@ -116,6 +128,9 @@ The node needs 59 to 60 ms per frame with two persons on an RTX PRO 6000.
 - The node does not estimate hands. GEM-X's Hand Pose needs separate weights, and their owner gates the download.
 - The node does not use Body Motion, GEM-X's temporal model that works in world coordinates.
 - An id ends when its person is missing for more than 10 frames. The node does not reuse ids.
+- We tested the download against a local server, and we fetched `body_config.json` and
+  `SOMA_procedural_transforms.json` from Hugging Face with it. We have not downloaded the large files or the YOLOX
+  archive through the node.
 
 ## Documentation
 

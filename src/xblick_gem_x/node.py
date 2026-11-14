@@ -2,7 +2,7 @@
 Kinect's body tracking (xblick-azure-kinect's xblick-k4abt) that runs on any colour camera with depth.
 
     xblick-gem-x --camera CAMERA[:color=NAME][:depth=NAME] [--camera ...] [--node gem_x]
-                     [--bodies-key KEY] [--no-depth-fit] [--autocast none]
+                     [--bodies-key KEY] [--no-depth-fit] [--autocast none] [--no-download]
 
 A camera is ``<CAMERA>/<color>`` and ``<CAMERA>/<depth>`` (16UC1 mm in the colour camera's geometry), paired by stamp,
 at the depth's resolution, undistorted (xblick.rgbd). Per frame: YOLOX's persons (boxes at least --min-height px
@@ -14,6 +14,10 @@ Published per camera, stamped as the frame: ``--bodies-key`` (default ``<CAMERA>
 ``{node}`` are filled in), JSON as xblick-azure-kinect's bodies (skeleton.py: model K4ABT_BODY_32, positions in mm
 in the colour camera's frame; also each body's SOMA joints and its depth fit). With ``--bodies-key {camera}/bodies``
 it stands in for the Azure Kinect's tracker for its readers (Durchblick's Rerun bridge, ...): run one of the two.
+
+Weights (weights.py): missing ones are downloaded at the start, before the models load; --no-download ends the node
+instead. ``xblick-gem-x --download-only`` only downloads and checks them (no camera, no Zenoh, no GPU), for
+preparation scripts.
 """
 
 from __future__ import annotations
@@ -30,6 +34,8 @@ from xblick import node, topics
 from xblick.camera import CountedPublisher
 from xblick.rgbd import CameraSpec, FramePreparer, RGBDInputs
 from xblick.session import add_arguments, open_from_args
+
+from . import weights
 
 NODE = "gem_x"
 
@@ -75,17 +81,20 @@ def main(argv=None) -> int:
                              "11-17 ms); 0: only equal stamps")
     parser.add_argument("--history", type=int, default=10)
     parser.add_argument("--device", default="cuda")
+    weights.add_arguments(parser)  # --download-only (a mode of the command line), --no-download
     add_arguments(parser)
     # --max-hz: at most 20 colour frames/s (about 10 measured; 0: every frame)
     # --local: auto (the CUDA ring on this GPU, else shared memory), shm or cuda
     node.add_arguments(parser, max_hz=20.0, local=("auto", "shm", "cuda"))
     node.Parameters.add_arguments(parser)  # --param NAME:=VALUE, --params-file, --dump-params, --params-read-only
-    args = parser.parse_args(argv)
+    args = weights.parse_args(parser, argv)  # --download-only: --camera not required
+    if args.download_only:
+        return weights.download_only(weights.needed())
     # the options as parameters (the terminal interface shows them): read-only, but LIVE
     session = open_from_args(args)
     params = node.Parameters(session, args.node)
     params.configure(args)
-    params.declare_options(parser, args, live=LIVE, leave_out=("node",))
+    params.declare_options(parser, args, live=LIVE, leave_out=("node", "download_only"))
     params.check_overrides()
     try:
         specs = [CameraSpec.parse(c) for c in args.camera]
@@ -102,6 +111,12 @@ def main(argv=None) -> int:
     # SOMA's skinning: torch's notes on sparse tensors (beta, invariant checks) at the first frame
     node.start("xblick-gem-x", ignore=["Sparse CSR tensor support is in beta", "Sparse invariant checks",
                                       "Validating sparse tensor invariants"], max_hz=args.max_hz, local=args.local)
+    try:
+        weights.ensure(weights.needed(), download=not args.no_download)
+    except weights.WeightsError as error:
+        params.close()
+        session.close()
+        return weights.fail(error)
 
     import onnxruntime  # noqa: PLC0415
     import torch  # noqa: PLC0415

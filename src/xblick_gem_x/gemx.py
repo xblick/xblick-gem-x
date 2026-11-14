@@ -4,8 +4,9 @@ its mesh in the camera [m], and the joints' projections. Its person detector: YO
 model) on ONNX Runtime, on the GPU with ONNX Runtime's CUDA build.
 
 The code: the package ``gem`` at a fixed commit (pyproject.toml); the weights (Hugging Face nvidia/GEM-X, SOMA 0.3.3's
-assets nvidia/SOMA-X at their revisions, YOLOX at its archive's SHA-256) in weights/ (tools/setup.sh). Nothing is
-fetched at run time; Warp's kernel cache (SOMA's skinning) is weights/warp-cache.
+assets nvidia/SOMA-X at their revisions, YOLOX at its archive's SHA-256) in weights/: weights.py downloads them,
+at the node's start when missing. Nothing is fetched while it works; Warp's kernel cache (SOMA's skinning) is
+weights/warp-cache.
 """
 
 from __future__ import annotations
@@ -54,7 +55,7 @@ class GemX:
 
         for path in [weights / f for f in BODY_FILES] + [weights / "soma" / f for f in SOMA_FILES]:
             if not path.is_file():
-                raise FileNotFoundError(f"{path}: missing (tools/setup.sh downloads the weights)")
+                raise FileNotFoundError(f"{path}: missing (xblick-gem-x --download-only downloads it)")
         from .skeleton import check_soma77  # noqa: PLC0415
 
         check_soma77(weights / "soma" / "SOMA_template_rig.usda")
@@ -91,7 +92,7 @@ class PersonDetector:
     def __init__(self, weights: Path = WEIGHTS, device: str = "cuda", score: float = 0.5):
         path = weights / DETECTOR
         if not path.is_file():
-            raise FileNotFoundError(f"{path}: missing (tools/setup.sh downloads YOLOX)")
+            raise FileNotFoundError(f"{path}: missing (xblick-gem-x --download-only downloads it)")
         if device.startswith("cuda"):
             import onnxruntime  # noqa: PLC0415
 
