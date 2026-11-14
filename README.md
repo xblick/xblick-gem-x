@@ -56,14 +56,7 @@ tools/setup.sh
 The script creates `.venv` exactly as `uv.lock` states and downloads the weights into `weights/`. It downloads only
 what is missing, so you can run it again after an update. The node itself never downloads anything.
 
-Before it downloads a model, the script names the models' terms from the table above and asks whether to go on. A
-script without a terminal accepts them with a flag or a variable. Without either it ends with an error and downloads
-nothing:
-
-```bash
-tools/setup.sh --accept-model-terms
-XBLICK_GEM_X_ACCEPT_MODEL_TERMS=yes tools/setup.sh
-```
+Before it downloads a model, the script prints the models' terms from the table above.
 
 ## Run
 

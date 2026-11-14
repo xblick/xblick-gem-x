@@ -2,9 +2,7 @@
 
 ## 0.2.1 (2026-11-14)
 
-`tools/setup.sh` names the models' terms before it downloads one and asks whether to go on. A script without a
-terminal passes `--accept-model-terms` or sets `XBLICK_GEM_X_ACCEPT_MODEL_TERMS=yes`; without either the script ends
-with an error. The README no longer names a licence for the YOLOX-X HumanArt person detector: OpenMMLab states none
+`tools/setup.sh` prints the models' terms before it downloads one. The README no longer names a licence for the YOLOX-X HumanArt person detector: OpenMMLab states none
 for the model file, and one of its training datasets, Human-Art, is offered for non-commercial purposes only.
 
 ## 0.2.0 (2026-11-13)
