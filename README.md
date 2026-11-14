@@ -1,6 +1,9 @@
 # xblick-gem-x
 
 [![xblick core](https://img.shields.io/pypi/v/xblick?label=xblick%20core&color=blue)](https://github.com/xblick/xblick)
+[![tests](https://github.com/xblick/xblick-gem-x/actions/workflows/tests.yml/badge.svg)](https://github.com/xblick/xblick-gem-x/actions/workflows/tests.yml)
+[![licence](https://img.shields.io/badge/licence-Apache--2.0-blue)](LICENSE)
+[![device](https://img.shields.io/badge/needs-NVIDIA%20GPU-76b900)](README.md)
 
 This [Durchblick](https://github.com/xblick/xblick) node computes the 3D bodies of the people in
 front of a colour camera with depth. It takes about 60 ms per frame with two persons, so it keeps up with a camera at
