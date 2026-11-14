@@ -1,5 +1,7 @@
 # xblick-gem-x
 
+[![xblick core](https://img.shields.io/pypi/v/xblick?label=xblick%20core&color=blue)](https://github.com/xblick/xblick)
+
 This [Durchblick](https://github.com/xblick/xblick) node computes the 3D bodies of the people in
 front of a colour camera with depth. It takes about 60 ms per frame with two persons, so it keeps up with a camera at
 10 frames per second.
@@ -63,7 +65,7 @@ Before it downloads a model, the script prints the models' terms from the table 
 Start a Zenoh router (`zenohd`) on the PC, then start the node for one camera. The camera names below are examples.
 
 ```bash
-.venv/bin/xblick-gem-x --camera robot/camera:depth=depth_to_color
+.venv/bin/xblick-gem-x --camera test/camera:depth=depth_to_color
 ```
 
 A camera specification has the form `CAMERA[:color=NAME][:depth=NAME]`. Repeat `--camera` for several cameras. The
