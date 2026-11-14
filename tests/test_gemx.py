@@ -6,7 +6,9 @@ import numpy as np
 import pytest
 import torch
 
-from xblick_gem_x.gemx import WEIGHTS
+from xblick_gem_x.weights import STORE
+
+WEIGHTS = STORE.root  # the node's cache directory (XBLICK_HOME moves it)
 
 pytestmark = [pytest.mark.skipif(not torch.cuda.is_available(), reason="needs a CUDA device"),
               pytest.mark.skipif(not (WEIGHTS / "body_s240000.ckpt").is_file(), reason="needs weights/")]
@@ -16,7 +18,7 @@ def test_a_body_with_a_persons_anatomy():
     from xblick_gem_x.gemx import GemX
     from xblick_gem_x.skeleton import INDEX
 
-    gemx = GemX("cuda")
+    gemx = GemX("cuda", WEIGHTS)
     rgb = np.full((480, 640, 3), 127, np.uint8)  # GEM-X answers with a body for any crop: its shape is checked here
     K = np.array([[600.0, 0, 319.5], [0, 600.0, 239.5], [0, 0, 1]])
     b = gemx.predict(rgb, np.array([[320.0, 240.0, 400.0], [200.0, 240.0, 300.0]]), K)
@@ -35,5 +37,5 @@ def test_a_body_with_a_persons_anatomy():
 def test_no_person_in_an_empty_image():
     from xblick_gem_x.gemx import PersonDetector
 
-    boxes, scores = PersonDetector(device="cuda:0").detect(np.full((480, 640, 3), 127, np.uint8))
+    boxes, scores = PersonDetector(WEIGHTS, device="cuda:0").detect(np.full((480, 640, 3), 127, np.uint8))
     assert boxes.shape == (0, 4) and scores.shape == (0,)

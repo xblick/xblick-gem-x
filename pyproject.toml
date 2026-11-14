@@ -1,6 +1,6 @@
 [project]
 name = "xblick-gem-x"
-version = "0.2.3"
+version = "0.2.4"
 description = "GEM-X (people's 3D bodies from one image) on cameras with depth, as a Durchblick node: an alternative to the Azure Kinect's body tracking"
 readme = "README.md"
 license = "Apache-2.0"
@@ -9,7 +9,7 @@ authors = [{ name = "David Schneider" }]
 requires-python = ">=3.12,<3.13"
 dependencies = [
     # the Durchblick core: rgbd (the cameras' streams, pairing), node, logs, diagnostics, parameters
-    "xblick>=0.5.3,<0.6",
+    "xblick>=0.5.5,<0.6",
     "gem",  # GEM-X's Body Pose (its own pins: transformers 5.3.0, py-soma-x 0.3.3)
     "torch>=2.10",
     "torchvision",

@@ -56,7 +56,7 @@ tools/setup.sh
 ```
 
 The script creates `.venv` exactly as `uv.lock` states. Then it runs `xblick-gem-x --download-only`, which
-downloads the weights into `weights/`. It downloads only what is missing, so you can run it again after an update.
+downloads the weights into `~/.cache/xblick/gem-x/`. It downloads only what is missing, so you can run it again after an update.
 
 The node itself also downloads missing weights at its start, before it loads the models. Before a download it
 prints the models' terms from the table above, the files and their size. A preparation script downloads without a
@@ -69,6 +69,20 @@ start:
 `--download-only` needs no camera, no Zenoh router and no GPU, and it exits with 0 when the weights are complete. A
 machine that must never start a download on its own, such as a robot, starts the node with `--no-download`. The
 node then ends at once when a file is missing, and it names the file.
+
+### Where the weights are
+
+The node keeps its weights in its cache directory, `~/.cache/xblick/gem-x/`. `XBLICK_HOME=/dir` moves it to `/dir/cache/gem-x/`,
+and `XDG_CACHE_HOME` moves it as well. `--weights-dir DIR` names another directory. The place is the same for a
+checkout and for a pip install. [Where files are](https://github.com/xblick/xblick/blob/main/docs/reference/files.md) lists the places, and it shows how to copy the cache to a
+PC without internet.
+
+Up to version 0.2.3, the weights were in the checkout's `weights/`. The node does not read them there. At its start it
+prints the command that moves them. In the checkout it is:
+
+```bash
+mkdir -p ~/.cache/xblick && mv weights ~/.cache/xblick/gem-x
+```
 
 ## Run
 
@@ -100,6 +114,7 @@ only one of the two on a camera.
 | `--local` | `auto` | how frames of a camera on this host reach the node: `auto`, `shm` or `cuda` |
 | `--no-download` | off | end at once when a weight file is missing. The node downloads nothing. |
 | `--download-only` | off | download the missing weights, check them and end. `--camera` may be left out. |
+| `--weights-dir DIR` | the cache directory | where the weights are and go, in place of `~/.cache/xblick/gem-x/` |
 
 `.venv/bin/xblick-gem-x --help` lists all options, and [How the node works](docs/design.md) explains them.
 

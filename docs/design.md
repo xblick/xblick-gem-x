@@ -177,7 +177,7 @@ Two CUDA versions work in one process. PyTorch uses CUDA 13. The CUDA build of O
 as `nvidia-*` wheels, and the node loads them before it creates the detector. We tested both in one process.
 
 SOMA computes its mesh with Warp, which compiles GPU kernels at the first use and caches them. The node sets the
-cache to `weights/warp-cache`.
+cache to `warp-cache` in the node's cache directory, `~/.cache/xblick/gem-x/warp-cache`.
 
 ## Weights
 
@@ -186,11 +186,13 @@ YOLOX archive, its SHA-256, the exact sizes and the SHA-256 of each Hugging Face
 Hugging Face states for the files at the fixed revisions (`lfs.oid`). For the two small JSON files they are the
 hashes of the files at the revisions. All agree with copies that we downloaded earlier. The extracted
 `yolox_humanart.onnx` has no SHA-256 of its own, because no source states one. The SHA-256 of its archive covers it. The node and `tools/setup.sh` use this one list. The download itself (lock, `.part` files, checks, progress) is the core's `xblick.weights`:
-`weights.STORE` is the node's `xblick.weights.Store`.
+`weights.STORE` is the node's `xblick.weights.Store`. Its root is the node's cache directory, `~/.cache/xblick/gem-x/`
+(`XBLICK_HOME`, `XDG_CACHE_HOME`, `--weights-dir`). The checkout's `weights/` is the former place: the node does not
+read weights there, and it prints the command that moves them.
 
 At its start, before it loads the models, the node checks that every file exists. When all files exist, the node
 opens no network connection and writes no file, so it starts offline. When a file is missing, the node takes the
-lock `weights/.download.lock`. It prints the models' terms, the files and their size, and it downloads each file.
+lock `~/.cache/xblick/gem-x/.download.lock`. It prints the models' terms, the files and their size, and it downloads each file.
 The node writes a file as `<name>.part` in the same directory and renames it after the check. A file therefore has
 its final name only when it is complete. A second node that starts at the same time waits for the lock. It then
 finds the files and does not download them again.
@@ -223,4 +225,4 @@ server, and `HF_HUB_OFFLINE=1` prevents the Hugging Face downloads.
 | --- | --- | --- |
 | `tests/test_helpers.py` | CPU | the overlap of boxes and the ids of the tracker, the skeleton mapping and its JSON, the SOMA joints against the rig, the depth fit. The fit finds a shift with a third of the surface occluded. |
 | `tests/test_weights.py` | CPU, a local HTTP server | the files, their revisions and SHA-256, YOLOX out of its checked archive and a changed archive, a changed Hugging Face file refused, the node's `STORE`, `--download-only` and `--no-download`, a start that stops after its weights step without a GPU. The download itself: the core's tests |
-| `tests/test_gemx.py` | a CUDA device and `weights/` | a body with the anatomy of a person, with the mapped joints where they belong. An empty image gives no person. |
+| `tests/test_gemx.py` | a CUDA device and the weights in the cache directory | a body with the anatomy of a person, with the mapped joints where they belong. An empty image gives no person. |

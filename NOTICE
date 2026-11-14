@@ -8,7 +8,7 @@ Parts of others that the node uses. None of them is contained in this repository
 - GEM-X code by NVIDIA (github.com/NVlabs/GEM-X), Apache License 2.0. Some of its hand files are under
   OpenMDW-1.1, and the node does not use them. It is a Python dependency at a fixed commit.
 - GEM-X Body Pose weights by NVIDIA (Hugging Face nvidia/GEM-X), NVIDIA Open Model License.
-  The node downloads them into weights/.
+  The node downloads them into its cache directory (~/.cache/xblick/gem-x).
 - SOMA body assets by NVIDIA (Hugging Face nvidia/SOMA-X), Apache License 2.0. The node downloads them.
 - YOLOX-X HumanArt person detector by OpenMMLab. The node downloads it from OpenMMLab's archive, the one
   GEM-X's instructions name. OpenMMLab states no licence for the model file; it is separate from GEM-X.

@@ -15,9 +15,9 @@ Published per camera, stamped as the frame: ``--bodies-key`` (default ``<CAMERA>
 in the colour camera's frame; also each body's SOMA joints and its depth fit). With ``--bodies-key {camera}/bodies``
 it stands in for the Azure Kinect's tracker for its readers (Durchblick's Rerun bridge, ...): run one of the two.
 
-Weights (weights.py): missing ones are downloaded at the start, before the models load; --no-download ends the node
-instead. ``xblick-gem-x --download-only`` only downloads and checks them (no camera, no Zenoh, no GPU), for
-preparation scripts.
+Weights (weights.py; in the node's cache directory ~/.cache/xblick/gem-x, or --weights-dir): missing ones are downloaded
+at the start, before the models load; --no-download ends the node instead. ``xblick-gem-x --download-only`` only
+downloads and checks them (no camera, no Zenoh, no GPU), for preparation scripts.
 """
 
 from __future__ import annotations
@@ -90,7 +90,8 @@ def main(argv=None) -> int:
     node.Parameters.add_arguments(parser)  # --param NAME:=VALUE, --params-file, --dump-params, --params-read-only
     args = xblick_weights.parse_args(parser, argv)  # --download-only: --camera not required
     if args.download_only:
-        return weights.STORE.download_only(weights.needed())
+        return weights.store_for(parser, args).download_only(
+            weights.needed(), options=weights.options(args))
     # the options as parameters (the terminal interface shows them): read-only, but LIVE
     session = open_from_args(args)
     params = node.Parameters(session, args.node)
@@ -112,12 +113,13 @@ def main(argv=None) -> int:
     # SOMA's skinning: torch's notes on sparse tensors (beta, invariant checks) at the first frame
     node.start("xblick-gem-x", ignore=["Sparse CSR tensor support is in beta", "Sparse invariant checks",
                                       "Validating sparse tensor invariants"], max_hz=args.max_hz, local=args.local)
+    store = weights.store_for(parser, args)  # --weights-dir, also given as a parameter
     try:
-        weights.STORE.ensure(weights.needed(), download=not args.no_download)
+        store.ensure(weights.needed(), download=not args.no_download, options=weights.options(args))
     except xblick_weights.WeightsError as error:
         params.close()
         session.close()
-        return weights.STORE.fail(error)
+        return store.fail(error)
 
     import onnxruntime  # noqa: PLC0415
     import torch  # noqa: PLC0415
@@ -136,8 +138,8 @@ def main(argv=None) -> int:
         device = torch.device("cuda", torch.cuda.current_device())
     torch.cuda.set_device(device)
     print("xblick-gem-x: loading GEM-X and YOLOX", flush=True)
-    gemx = GemX(device, autocast=None if args.autocast == "none" else args.autocast)
-    detector = PersonDetector(device=f"cuda:{device.index}" if args.detector_device == "cuda" else "cpu",
+    gemx = GemX(device, store.root, autocast=None if args.autocast == "none" else args.autocast)
+    detector = PersonDetector(store.root, device=f"cuda:{device.index}" if args.detector_device == "cuda" else "cpu",
                               score=args.min_score)
     wake = threading.Event()
     cameras = []

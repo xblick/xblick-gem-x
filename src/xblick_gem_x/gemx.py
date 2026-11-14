@@ -4,9 +4,9 @@ its mesh in the camera [m], and the joints' projections. Its person detector: YO
 model) on ONNX Runtime, on the GPU with ONNX Runtime's CUDA build.
 
 The code: the package ``gem`` at a fixed commit (pyproject.toml); the weights (Hugging Face nvidia/GEM-X, SOMA 0.3.3's
-assets nvidia/SOMA-X at their revisions, YOLOX at its archive's SHA-256) in weights/: weights.py downloads them,
-at the node's start when missing. Nothing is fetched while it works; Warp's kernel cache (SOMA's skinning) is
-weights/warp-cache.
+assets nvidia/SOMA-X at their revisions, YOLOX at its archive's SHA-256) in the node's cache directory
+(``~/.cache/xblick/gem-x``, weights.STORE.root): weights.py downloads them, at the node's start when missing. Nothing
+is fetched while it works; Warp's kernel cache (SOMA's skinning) is ``warp-cache`` in the same directory.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ from pathlib import Path
 import numpy as np
 
 REPO = Path(__file__).resolve().parents[2]
-WEIGHTS = REPO / "weights"
 GEMX_REVISION = "4fce057963671fd95cd4154297944397e7b5a9a0"  # nvidia/GEM-X
 SOMA_REVISION = "d281db2d01553f7230c56e764cec00fe27ef23f7"  # nvidia/SOMA-X, tag v0.3.3
 BODY_FILES = ("body_s240000.ckpt", "body_config.json")
@@ -50,7 +49,7 @@ class GemX:
     """GEM-X's Body Pose on ``device``, loaded once; ``autocast`` bfloat16 runs its backbone so (30 against 43 ms a
     person on an RTX PRO 6000; joints within 2 mm of float32's)."""
 
-    def __init__(self, device="cuda", weights: Path = WEIGHTS, autocast: str | None = "bfloat16"):
+    def __init__(self, device, weights: Path, autocast: str | None = "bfloat16"):
         import torch  # noqa: PLC0415
 
         for path in [weights / f for f in BODY_FILES] + [weights / "soma" / f for f in SOMA_FILES]:
@@ -89,7 +88,7 @@ class GemX:
 class PersonDetector:
     """YOLOX-X HumanArt on ONNX Runtime: persons' boxes (N, 4) x0, y0, x1, y1 and scores in an RGB image."""
 
-    def __init__(self, weights: Path = WEIGHTS, device: str = "cuda", score: float = 0.5):
+    def __init__(self, weights: Path, device: str = "cuda", score: float = 0.5):
         path = weights / DETECTOR
         if not path.is_file():
             raise FileNotFoundError(f"{path}: missing (xblick-gem-x --download-only downloads it)")

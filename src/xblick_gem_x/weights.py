@@ -28,9 +28,11 @@ from pathlib import Path
 
 from xblick.weights import CHUNK, HuggingFace, Store, Weight, WeightsError, sha256_of
 
-from .gemx import BODY_FILES, DETECTOR, GEMX_REVISION, REPO, SOMA_FILES, SOMA_REVISION, WEIGHTS
+from .gemx import BODY_FILES, DETECTOR, GEMX_REVISION, REPO, SOMA_FILES, SOMA_REVISION
 
 PROG = "xblick-gem-x"
+NODE = "gem-x"  # the short name: its cache directory is ~/.cache/xblick/gem-x
+FORMER = REPO / "weights"  # the weights' place before 0.2.4 (the checkout): not used, the store names the move
 REQUIRED = ()  # (path, what): code from tools/setup.sh that must be there first; none here
 YOLOX_URL = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/yolox_x_8xb8-300e_humanart-a39d44ed.zip"
 YOLOX_SHA256 = "1c6fccc5cd450eb563b1fe4eba13c9bdf9ea8263b6ae1cb3ada765aa4ebea2c7"  # of the archive
@@ -59,11 +61,11 @@ The models are the work of others, under their terms, and you are the one who us
 
 def needed() -> list[Weight]:
     """Every file a start reads."""
-    return ([Weight(WEIGHTS / f, HuggingFace("nvidia/GEM-X", GEMX_REVISION, f), SIZES[f], SHA256[f])
+    return ([Weight(Path(f), HuggingFace("nvidia/GEM-X", GEMX_REVISION, f), SIZES[f], SHA256[f])
              for f in BODY_FILES]
-            + [Weight(WEIGHTS / "soma" / f, HuggingFace("nvidia/SOMA-X", SOMA_REVISION, f), SIZES[f], SHA256[f])
+            + [Weight(Path("soma") / f, HuggingFace("nvidia/SOMA-X", SOMA_REVISION, f), SIZES[f], SHA256[f])
                for f in SOMA_FILES]
-            + [Weight(WEIGHTS / DETECTOR, ZipMember(YOLOX_URL, YOLOX_SHA256, "*/end2end.onnx"), SIZES[DETECTOR])])
+            + [Weight(Path(DETECTOR), ZipMember(YOLOX_URL, YOLOX_SHA256, "*/end2end.onnx"), SIZES[DETECTOR])])
 
 
 @dataclass(frozen=True)
@@ -102,4 +104,18 @@ class ZipMember:
         return sha256_of(tmp)
 
 
-STORE = Store(PROG, WEIGHTS, TERMS, REQUIRED, repo=REPO)  # the download (xblick.weights), its lock in WEIGHTS
+def options(args) -> list[str]:
+    """The options that select the weights (and --weights-dir), for the download command the lines name."""
+    return [] + (["--weights-dir", args.weights_dir] if args.weights_dir else [])
+
+
+def store_for(parser, args) -> Store:
+    """STORE at --weights-dir (not given: the node's cache directory); a wrong --weights-dir is an argument error."""
+    try:
+        return STORE.at(args.weights_dir)
+    except ValueError as error:
+        parser.error(f"--weights-dir: {error}")
+
+
+# the download (xblick.weights): the root is the node's cache directory, its lock there
+STORE = Store(PROG, node=NODE, terms=TERMS, required=REQUIRED, repo=REPO, former=[FORMER])
