@@ -43,7 +43,7 @@ Model licences:
 | GEM-X code | Apache-2.0. Some hand files are under OpenMDW-1.1, and the node does not use them. |
 | GEM-X Body Pose weights | NVIDIA Open Model License |
 | SOMA body assets | Apache-2.0 |
-| YOLOX-X HumanArt person detector | Published by OpenMMLab, who state no licence for the model file. It comes from OpenMMLab's download and is separate from GEM-X, as in GEM-X's own instructions. |
+| YOLOX-X HumanArt person detector | Published by OpenMMLab, who state no licence for the model file. It comes from OpenMMLab's download and is separate from GEM-X, as in GEM-X's own instructions. It is trained on COCO and Human-Art, and Human-Art is offered for non-commercial purposes only: check whether you may use the detector for your purpose. |
 
 `tools/setup.sh` downloads all four. This repository contains no copy of them.
 
@@ -55,6 +55,15 @@ tools/setup.sh
 
 The script creates `.venv` exactly as `uv.lock` states and downloads the weights into `weights/`. It downloads only
 what is missing, so you can run it again after an update. The node itself never downloads anything.
+
+Before it downloads a model, the script names the models' terms from the table above and asks whether to go on. A
+script without a terminal accepts them with a flag or a variable. Without either it ends with an error and downloads
+nothing:
+
+```bash
+tools/setup.sh --accept-model-terms
+XBLICK_GEM_X_ACCEPT_MODEL_TERMS=yes tools/setup.sh
+```
 
 ## Run
 

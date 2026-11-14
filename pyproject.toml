@@ -1,6 +1,6 @@
 [project]
 name = "xblick-gem-x"
-version = "0.2.0"
+version = "0.2.1"
 description = "GEM-X (people's 3D bodies from one image) on cameras with depth, as a Durchblick node: an alternative to the Azure Kinect's body tracking"
 readme = "README.md"
 license = "Apache-2.0"

@@ -19,7 +19,9 @@ tools/setup.sh                                   # uv sync --frozen, GEM-X/SOMA 
 
 - Console script: `xblick-gem-x`.
 - `tools/setup.sh` needs uv (`UV` names it), git, curl, unzip. It downloads only what is
-  missing (3.5 GB of GEM-X weights on the first call).
+  missing (3.5 GB of GEM-X weights on the first call). Before a download it names the models' terms and asks; without
+  a terminal it needs `--accept-model-terms` or `XBLICK_GEM_X_ACCEPT_MODEL_TERMS=yes`, which only the user may
+  decide to give: never pass them on your own.
 - Durations: not recorded.
 - Without a camera: `xblick play <recording.mcap> --loop` of an RGB-D recording with people. None existed when the
   node was written; the test in `docs/performance.md` is synthetic.
