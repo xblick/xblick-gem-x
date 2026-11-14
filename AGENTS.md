@@ -14,7 +14,7 @@ tools/setup.sh                                   # uv sync --frozen, GEM-X/SOMA 
 .venv/bin/python -m pytest tests                 # 8 tests; test_gemx.py needs a CUDA device and weights/
 .venv/bin/python -m pytest tests/test_helpers.py # CPU: tracker, skeleton mapping, SOMA rig check, depth fit
 .venv/bin/ruff check src tests                   # lint; 120 columns, rules in pyproject.toml
-.venv/bin/xblick-gem-x --camera test/camera:depth=depth_to_color   # needs zenohd on the PC
+.venv/bin/xblick-gem-x --camera cam/azurekinect:depth=depth_to_color   # needs zenohd on the PC
 ```
 
 - Console script: `xblick-gem-x`.

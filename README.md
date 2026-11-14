@@ -65,7 +65,7 @@ Before it downloads a model, the script prints the models' terms from the table 
 Start a Zenoh router (`zenohd`) on the PC, then start the node for one camera. The camera names below are examples.
 
 ```bash
-.venv/bin/xblick-gem-x --camera test/camera:depth=depth_to_color
+.venv/bin/xblick-gem-x --camera cam/azurekinect:depth=depth_to_color
 ```
 
 A camera specification has the form `CAMERA[:color=NAME][:depth=NAME]`. Repeat `--camera` for several cameras. The
