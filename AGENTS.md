@@ -11,7 +11,7 @@ tests) are in the core's `AGENTS.md` (github.com/xblick/xblick). Style of all do
 
 ```bash
 tools/setup.sh                                   # uv sync --frozen, then xblick-gem-x --download-only
-.venv/bin/python -m pytest tests                 # 30 tests; test_gemx.py needs a CUDA device and weights/
+.venv/bin/python -m pytest tests                 # 33 tests; test_gemx.py needs a CUDA device and weights/
 .venv/bin/python -m pytest tests/test_weights.py # CPU, 12 s: downloads from a local HTTP server
 .venv/bin/xblick-gem-x --download-only           # GEM-X/SOMA (fixed revisions), YOLOX (archive SHA-256) if missing
 .venv/bin/python -m pytest tests/test_helpers.py # CPU: tracker, skeleton mapping, SOMA rig check, depth fit

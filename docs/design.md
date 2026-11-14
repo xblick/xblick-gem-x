@@ -182,7 +182,10 @@ cache to `weights/warp-cache`.
 ## Weights
 
 `weights.py` lists the files that the node reads. It takes the file names and revisions from `gemx.py` and adds the
-YOLOX archive, its SHA-256 and the sizes. The node and `tools/setup.sh` use this one list.
+YOLOX archive, its SHA-256, the exact sizes and the SHA-256 of each Hugging Face file. Those are the values that
+Hugging Face states for the files at the fixed revisions (`lfs.oid`). For the two small JSON files they are the
+hashes of the files at the revisions. All agree with copies that we downloaded earlier. The extracted
+`yolox_humanart.onnx` has no SHA-256 of its own, because no source states one. The SHA-256 of its archive covers it. The node and `tools/setup.sh` use this one list.
 
 At its start, before it loads the models, the node checks that every file exists. When all files exist, the node
 opens no network connection and writes no file, so it starts offline. When a file is missing, the node takes the
@@ -191,8 +194,9 @@ The node writes a file as `<name>.part` in the same directory and renames it aft
 its final name only when it is complete. A second node that starts at the same time waits for the lock. It then
 finds the files and does not download them again.
 
-The check compares the length of a Hugging Face download with the length that the server announced. The fixed
-revision determines the content. The YOLOX archive goes to `yolox_humanart.onnx.part.zip`, and the node checks its
+The check compares the length of a download with the length that the server announced and with the size in
+`weights.py`. Then it compares the SHA-256 of a Hugging Face file. A wrong size or SHA-256 keeps the download as
+`<name>.part`, and the error names it. `--download-only` also checks the SHA-256 of files that exist. The YOLOX archive goes to `yolox_humanart.onnx.part.zip`, and the node checks its
 SHA-256 before it takes `end2end.onnx` out of it. Then it removes the archive. A wrong SHA-256 keeps the archive,
 and the error names it. Remove it, then start again. The progress is a line that updates in place on a terminal. In
 a log file it is one line per tenth of the file.

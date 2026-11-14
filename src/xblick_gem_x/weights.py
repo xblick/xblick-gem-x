@@ -9,6 +9,8 @@ all under a file lock, so that two nodes started at once download once and never
 * SOMA 0.3.3's body assets (nvidia/SOMA-X at ``gemx.SOMA_REVISION``, ``gemx.SOMA_FILES``) in ``weights/soma/``
 * the YOLOX-X HumanArt person detector (``gemx.DETECTOR``): ``end2end.onnx`` of OpenMMLab's archive, the archive
   checked by its SHA-256 (``ZipMember``)
+* ``SHA256``: each Hugging Face file's SHA-256 (Hugging Face's ``lfs.oid`` at the revision for LFS files, the hash of
+  the file at the revision for the two small JSON files; all checked against copies downloaded before)
 * ``needed()``: all of them (every start reads them)
 
 The rest of this file (from ``Weight`` on) is the same in every node's ``weights.py``.
@@ -39,10 +41,18 @@ PROG = "xblick-gem-x"
 REQUIRED = ()  # (path, what): code from tools/setup.sh that must be there first; none here
 YOLOX_URL = "https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/yolox_x_8xb8-300e_humanart-a39d44ed.zip"
 YOLOX_SHA256 = "1c6fccc5cd450eb563b1fe4eba13c9bdf9ea8263b6ae1cb3ada765aa4ebea2c7"  # of the archive
-SIZES = {  # bytes, as downloaded (for the announcement)
+SIZES = {  # bytes, exact (checked after a download)
     "body_s240000.ckpt": 3_538_753_341, "body_config.json": 1_086, "SOMA_neutral.npz": 26_608_121,
     "SOMA_template_rig.usda": 28_306_038, "SOMA_procedural_transforms.json": 20_045,
     "correctives_model.pt": 70_549_157, DETECTOR: 396_283_264,
+}
+SHA256 = {  # the Hugging Face files; YOLOX: its archive's YOLOX_SHA256 (the extracted file has none from a source)
+    "body_s240000.ckpt": "e244d27f2834eb6382c5f6b9cbf2a38681b685514a1b2e86f8f3d2592d614959",
+    "body_config.json": "61c29c72b93f88789ecb7beb21c526c78e92e24ffbce91d91e51984272b26368",
+    "SOMA_neutral.npz": "5829af4a5333abdba5ad449360b868faacee99d395971e62f35c0e7169432b63",
+    "SOMA_template_rig.usda": "a952cb7bdf4ccd801e355d53122d395b985b69d0d9181439edad5081bb171856",
+    "SOMA_procedural_transforms.json": "9853e19ab51625ffaa7d9e7ccf0e443272c2740837604e6bacd66604e8edf509",
+    "correctives_model.pt": "411d061a651051a7a4ec941543495d35eac21e5a7a69c8ce042b89cd12772a43",
 }
 # The terms of what is downloaded, printed before the download (whoever downloads is the one who uses the models).
 TERMS = """\
@@ -56,8 +66,9 @@ The models are the work of others, under their terms, and you are the one who us
 
 def needed() -> list[Weight]:
     """Every file a start reads."""
-    return ([Weight(WEIGHTS / f, HuggingFace("nvidia/GEM-X", GEMX_REVISION, f), SIZES[f]) for f in BODY_FILES]
-            + [Weight(WEIGHTS / "soma" / f, HuggingFace("nvidia/SOMA-X", SOMA_REVISION, f), SIZES[f])
+    return ([Weight(WEIGHTS / f, HuggingFace("nvidia/GEM-X", GEMX_REVISION, f), SIZES[f], SHA256[f])
+             for f in BODY_FILES]
+            + [Weight(WEIGHTS / "soma" / f, HuggingFace("nvidia/SOMA-X", SOMA_REVISION, f), SIZES[f], SHA256[f])
                for f in SOMA_FILES]
             + [Weight(WEIGHTS / DETECTOR, ZipMember(YOLOX_URL, YOLOX_SHA256, "*/end2end.onnx"), SIZES[DETECTOR])])
 
@@ -160,8 +171,8 @@ class Url:
 
 @dataclass(frozen=True)
 class Weight:
-    """One file the node reads: where it is (``path``), where it comes from (``source``), about how large it is
-    (``size``, bytes, for the announcement) and, where known, its SHA-256."""
+    """One file the node reads: where it is (``path``), where it comes from (``source``), its exact size (``size``,
+    bytes: announced, and a download of another length is refused) and, where known, its SHA-256."""
 
     path: Path
     source: object  # HuggingFace, Url or a source of the node's own: describe() and fetch(tmp, progress) -> SHA-256
@@ -259,8 +270,8 @@ def ensure(weights: list[Weight], *, download: bool = True, verify: bool = False
 
 
 def _download(w: Weight, out):
-    """One file: into ``<name>.part``, its SHA-256 checked where known, renamed. A failed check keeps the .part file
-    for a look; any other failure or an interrupt removes it."""
+    """One file: into ``<name>.part``, its size and (where known) its SHA-256 checked, renamed. A failed check keeps
+    the .part file for a look; any other failure or an interrupt removes it."""
     tmp = w.path.with_name(w.path.name + ".part")
     w.path.parent.mkdir(parents=True, exist_ok=True)
     print(f"{PROG}: {w.path.name} ({_size(w.size)}) from {w.source.describe()}", file=out, flush=True)
@@ -272,11 +283,14 @@ def _download(w: Weight, out):
         raise
     finally:
         progress.end()
+    if (length := tmp.stat().st_size) != w.size:
+        raise WeightsError(f"{_short(tmp)}: {length} bytes, expected {w.size}: the source changed or the download is "
+                           "damaged; remove it, then start again")
     if w.sha256 is not None and digest != w.sha256:
         raise WeightsError(f"{_short(tmp)}: wrong SHA-256 ({digest}, expected {w.sha256}): the source changed or the "
                            "download is damaged; remove it, then start again")
     os.replace(tmp, w.path)
-    print(f"{PROG}: {_short(w.path)}: " + ("SHA-256 checked" if w.sha256 else "complete") + ", in place",
+    print(f"{PROG}: {_short(w.path)}: " + ("size and SHA-256 checked" if w.sha256 else "size checked") + ", in place",
           file=out, flush=True)
 
 

@@ -29,6 +29,8 @@ TERMS_LINE = "The models are the work of others"  # the first line of weights.TE
 NETWORK = True  # the weights come from the network
 MODEL = ("xblick_gem_x.gemx", "GemX")  # what loads the model, after the weights
 
+WITHOUT_SHA256 = ("yolox_humanart.onnx",)  # checked through its archive's SHA-256
+
 
 def start_options(tmp_path) -> list[str]:
     """A start's required options."""
@@ -58,11 +60,14 @@ def stand_in(home, server, monkeypatch):
         if isinstance(w.source, weights.HuggingFace):
             content = DATA if w.size > 10**6 else w.path.name.encode()
             server.files[f"/{w.source.filename}"] = content
+            monkeypatch.setitem(weights.SIZES, w.path.name, len(content))
+            monkeypatch.setitem(weights.SHA256, w.path.name, hashlib.sha256(content).hexdigest())
             files[home / w.path.relative_to(weights.WEIGHTS)] = content
     archive = zipped(DATA)
     server.files["/yolox.zip"] = archive
     monkeypatch.setattr(weights, "YOLOX_URL", f"{server.url}/yolox.zip")
     monkeypatch.setattr(weights, "YOLOX_SHA256", hashlib.sha256(archive).hexdigest())
+    monkeypatch.setitem(weights.SIZES, "yolox_humanart.onnx", len(DATA))
     files[home / "yolox_humanart.onnx"] = DATA
     return files
 
@@ -80,6 +85,20 @@ def test_the_files_are_gemx_soma_and_yolox():
     assert sources["yolox_humanart.onnx"] == weights.ZipMember(weights.YOLOX_URL, weights.YOLOX_SHA256,
                                                                "*/end2end.onnx")
     assert weights.YOLOX_SHA256 == "1c6fccc5cd450eb563b1fe4eba13c9bdf9ea8263b6ae1cb3ada765aa4ebea2c7"
+    sha = {str(w.path.relative_to(weights.WEIGHTS)): w.sha256 for w in ws}  # Hugging Face's lfs.oid, or hashed
+    assert sha["body_s240000.ckpt"] == "e244d27f2834eb6382c5f6b9cbf2a38681b685514a1b2e86f8f3d2592d614959"
+    assert sha["soma/SOMA_procedural_transforms.json"] == (
+        "9853e19ab51625ffaa7d9e7ccf0e443272c2740837604e6bacd66604e8edf509")
+
+
+def test_a_changed_hugging_face_file_is_refused(home, server, monkeypatch):
+    monkeypatch.setenv("HF_ENDPOINT", server.url)
+    server.files["/body_config.json"] = b'{"changed": true}'
+    real = [w for w in weights.needed() if w.path.name == "body_config.json"][0]
+    w = weights.Weight(home / "body_config.json", real.source, 17, real.sha256)  # the real SHA-256
+    with pytest.raises(weights.WeightsError, match="body_config.json.part: wrong SHA-256.*61c29c72"):
+        weights.ensure([w], out=io.StringIO())
+    assert not w.path.exists()
 
 
 def test_yolox_comes_out_of_its_checked_archive(home, server, stand_in):
@@ -255,6 +274,20 @@ def test_a_wrong_checksum_keeps_the_download_aside_and_says_to_remove_it(home, s
     assert not w.path.exists() and (home / "a.bin.part").read_bytes() == DATA
 
 
+def test_a_download_of_another_length_is_refused_and_kept_aside(home, server):
+    w = url_weight(home, server, sha=None)
+    w = weights.Weight(w.path, w.source, len(DATA) + 1)  # a size in code that the source no longer has
+    with pytest.raises(weights.WeightsError, match=rf"a.bin.part: {len(DATA)} bytes, expected {len(DATA) + 1}.*remove"):
+        weights.ensure([w], out=io.StringIO())
+    assert not w.path.exists() and (home / "a.bin.part").exists()
+
+
+def test_every_file_of_the_node_has_its_exact_size_and_sha256():
+    for w in default_weights():
+        assert w.size > 0 and (w.sha256 is None) == (w.path.name in WITHOUT_SHA256), w.path.name
+        assert w.sha256 is None or len(w.sha256) == 64
+
+
 def test_download_only_checks_present_files_against_their_sha256(home, no_network):
     w = weights.Weight(home / "a.bin", weights.Url("http://127.0.0.1:9/a.bin"), 1, DATA_SHA)
     place({w.path: b"x"})
@@ -323,11 +356,11 @@ from pathlib import Path
 from {weights.__name__} import Url, Weight, WeightsError, ensure, fail
 import {weights.__name__} as weights
 signal.signal(signal.SIGINT, signal.default_int_handler)  # also where a background shell ignores it
-root, url, sha = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+root, url, sha, size = Path(sys.argv[1]), sys.argv[2], sys.argv[3], int(sys.argv[4])
 weights.WEIGHTS = root
 weights.REQUIRED = ()
 try:
-    ensure([Weight(root / "a.bin", Url(url), 1, sha)])
+    ensure([Weight(root / "a.bin", Url(url), size, sha)])
 except WeightsError as error:
     sys.exit(fail(error))
 print("done", flush=True)
@@ -335,7 +368,7 @@ print("done", flush=True)
 
 
 def child(root: Path, server: Server) -> subprocess.Popen:
-    return subprocess.Popen([sys.executable, "-c", CHILD, str(root), f"{server.url}/a.bin", DATA_SHA],
+    return subprocess.Popen([sys.executable, "-c", CHILD, str(root), f"{server.url}/a.bin", DATA_SHA, str(len(DATA))],
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
 

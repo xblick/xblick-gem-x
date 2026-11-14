@@ -10,6 +10,10 @@
 - `weights.py` is the one list of the weight files: the names and revisions of `gemx.py`, YOLOX's archive with its
   SHA-256 (moved from `tools/setup.sh`) and the models' terms (moved from `tools/setup.sh`, unchanged).
 - A download goes to `<name>.part` under the lock `weights/.download.lock` and gets its final name after the check.
+- Each Hugging Face file has its SHA-256 in `weights.py`: Hugging Face's `lfs.oid` at the fixed revision, or for the
+  two small JSON files the hash of the file at that revision. A download is checked against it and against the exact
+  size; `--download-only` also checks the files that exist. `yolox_humanart.onnx` stays covered by its archive's
+  SHA-256.
 
 ## 0.2.1 (2026-11-14)
 
