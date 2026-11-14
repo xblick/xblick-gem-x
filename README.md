@@ -43,7 +43,7 @@ Model licences:
 | GEM-X code | Apache-2.0. Some hand files are under OpenMDW-1.1, and the node does not use them. |
 | GEM-X Body Pose weights | NVIDIA Open Model License |
 | SOMA body assets | Apache-2.0 |
-| YOLOX-X HumanArt person detector (OpenMMLab) | Apache-2.0 |
+| YOLOX-X HumanArt person detector | Published by OpenMMLab, who state no licence for the model file. It comes from OpenMMLab's download and is separate from GEM-X, as in GEM-X's own instructions. |
 
 `tools/setup.sh` downloads all four. This repository contains no copy of them.
 

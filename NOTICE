@@ -10,4 +10,5 @@ Parts of others that the node uses. None of them is contained in this repository
 - GEM-X Body Pose weights by NVIDIA (Hugging Face nvidia/GEM-X), NVIDIA Open Model License.
   tools/setup.sh downloads them into weights/.
 - SOMA body assets by NVIDIA (Hugging Face nvidia/SOMA-X), Apache License 2.0. tools/setup.sh downloads them.
-- YOLOX-X HumanArt person detector by OpenMMLab, Apache License 2.0. tools/setup.sh downloads it.
+- YOLOX-X HumanArt person detector by OpenMMLab. tools/setup.sh downloads it from OpenMMLab's archive, the one
+  GEM-X's instructions name. OpenMMLab states no licence for the model file; it is separate from GEM-X.
