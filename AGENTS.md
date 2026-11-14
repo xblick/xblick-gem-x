@@ -24,7 +24,7 @@ tools/setup.sh                                   # uv sync --frozen, GEM-X/SOMA 
 - Durations: not recorded.
 - Without a camera: `xblick play <recording.mcap> --loop` of an RGB-D recording with people. None existed when the
   node was written; the test in `docs/performance.md` is synthetic.
-- rc_visard example: `--camera robot/rc_visard:color=left:depth=ffs/depth` (needs xblick-fast-foundationstereo).
+- rc_visard example: `--camera cam/rc_visard:color=left:depth=ffs/depth` (needs xblick-fast-foundationstereo).
 - `xblick rerun` draws the bodies in 3D and over the colour stream.
 
 ## Rules

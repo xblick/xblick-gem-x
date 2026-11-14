@@ -73,7 +73,7 @@ second example reads a stereo camera whose depth comes from xblick-fast-foundati
 bodies on the topic of the Azure Kinect tracker.
 
 ```bash
-.venv/bin/xblick-gem-x --camera robot/rc_visard:color=left:depth=ffs/depth --bodies-key "{camera}/bodies"
+.venv/bin/xblick-gem-x --camera cam/rc_visard:color=left:depth=ffs/depth --bodies-key "{camera}/bodies"
 ```
 
 With `--bodies-key "{camera}/bodies"` the node replaces the Azure Kinect tracker for the readers of that topic. Run
