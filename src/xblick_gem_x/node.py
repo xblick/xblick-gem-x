@@ -31,6 +31,7 @@ from dataclasses import dataclass
 import numpy as np
 import zenoh
 from xblick import node, topics
+from xblick import weights as xblick_weights
 from xblick.camera import CountedPublisher
 from xblick.rgbd import CameraSpec, FramePreparer, RGBDInputs
 from xblick.session import add_arguments, open_from_args
@@ -81,15 +82,15 @@ def main(argv=None) -> int:
                              "11-17 ms); 0: only equal stamps")
     parser.add_argument("--history", type=int, default=10)
     parser.add_argument("--device", default="cuda")
-    weights.add_arguments(parser)  # --download-only (a mode of the command line), --no-download
+    xblick_weights.add_arguments(parser)  # --download-only (a mode of the command line), --no-download
     add_arguments(parser)
     # --max-hz: at most 20 colour frames/s (about 10 measured; 0: every frame)
     # --local: auto (the CUDA ring on this GPU, else shared memory), shm or cuda
     node.add_arguments(parser, max_hz=20.0, local=("auto", "shm", "cuda"))
     node.Parameters.add_arguments(parser)  # --param NAME:=VALUE, --params-file, --dump-params, --params-read-only
-    args = weights.parse_args(parser, argv)  # --download-only: --camera not required
+    args = xblick_weights.parse_args(parser, argv)  # --download-only: --camera not required
     if args.download_only:
-        return weights.download_only(weights.needed())
+        return weights.STORE.download_only(weights.needed())
     # the options as parameters (the terminal interface shows them): read-only, but LIVE
     session = open_from_args(args)
     params = node.Parameters(session, args.node)
@@ -112,11 +113,11 @@ def main(argv=None) -> int:
     node.start("xblick-gem-x", ignore=["Sparse CSR tensor support is in beta", "Sparse invariant checks",
                                       "Validating sparse tensor invariants"], max_hz=args.max_hz, local=args.local)
     try:
-        weights.ensure(weights.needed(), download=not args.no_download)
-    except weights.WeightsError as error:
+        weights.STORE.ensure(weights.needed(), download=not args.no_download)
+    except xblick_weights.WeightsError as error:
         params.close()
         session.close()
-        return weights.fail(error)
+        return weights.STORE.fail(error)
 
     import onnxruntime  # noqa: PLC0415
     import torch  # noqa: PLC0415

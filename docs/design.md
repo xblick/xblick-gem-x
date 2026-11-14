@@ -185,7 +185,8 @@ cache to `weights/warp-cache`.
 YOLOX archive, its SHA-256, the exact sizes and the SHA-256 of each Hugging Face file. Those are the values that
 Hugging Face states for the files at the fixed revisions (`lfs.oid`). For the two small JSON files they are the
 hashes of the files at the revisions. All agree with copies that we downloaded earlier. The extracted
-`yolox_humanart.onnx` has no SHA-256 of its own, because no source states one. The SHA-256 of its archive covers it. The node and `tools/setup.sh` use this one list.
+`yolox_humanart.onnx` has no SHA-256 of its own, because no source states one. The SHA-256 of its archive covers it. The node and `tools/setup.sh` use this one list. The download itself (lock, `.part` files, checks, progress) is the core's `xblick.weights`:
+`weights.STORE` is the node's `xblick.weights.Store`.
 
 At its start, before it loads the models, the node checks that every file exists. When all files exist, the node
 opens no network connection and writes no file, so it starts offline. When a file is missing, the node takes the
@@ -205,7 +206,7 @@ A failure ends the node with one line that says what to do. Ctrl-C or SIGTERM du
 once with the exit code 130 or 143. The node then removes the `.part` file and the archive.
 
 `--download-only` downloads and checks the files, then ends. It needs no camera, no Zenoh router and no GPU.
-`weights.parse_args` lifts the requirement of `--camera` when the command line contains `--download-only`.
+`xblick.weights.parse_args` lifts the requirement of `--camera` when the command line contains `--download-only`.
 `--no-download` ends the node when a file is missing and names the file. It is a read-only parameter like every
 other start option. `--download-only` is a mode of the command line and has no parameter.
 
@@ -221,5 +222,5 @@ server, and `HF_HUB_OFFLINE=1` prevents the Hugging Face downloads.
 | File | Needs | What it checks |
 | --- | --- | --- |
 | `tests/test_helpers.py` | CPU | the overlap of boxes and the ids of the tracker, the skeleton mapping and its JSON, the SOMA joints against the rig, the depth fit. The fit finds a shift with a third of the surface occluded. |
-| `tests/test_weights.py` | CPU, a local HTTP server | the list of files, no network use when all files exist, a download through the Hugging Face path with its redirect, YOLOX out of its checked archive, a wrong checksum, Ctrl-C and SIGTERM, two processes at once, the progress in a log file, `--download-only` and `--no-download` |
+| `tests/test_weights.py` | CPU, a local HTTP server | the files, their revisions and SHA-256, YOLOX out of its checked archive and a changed archive, a changed Hugging Face file refused, the node's `STORE`, `--download-only` and `--no-download`, a start that stops after its weights step without a GPU. The download itself: the core's tests |
 | `tests/test_gemx.py` | a CUDA device and `weights/` | a body with the anatomy of a person, with the mapped joints where they belong. An empty image gives no person. |
