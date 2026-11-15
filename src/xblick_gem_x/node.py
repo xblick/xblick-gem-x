@@ -30,15 +30,25 @@ from dataclasses import dataclass
 
 import numpy as np
 import zenoh
-from xblick import node, topics
+from xblick import mps, node, topics
 from xblick import weights as xblick_weights
-from xblick.camera import CountedPublisher
+from xblick.camera import CountedPublisher, check_local
 from xblick.rgbd import CameraSpec, FramePreparer, RGBDInputs
 from xblick.session import add_arguments, open_from_args
 
 from . import weights
 
 NODE = "gem_x"
+MAX_OFFSET_MS = 20.0  # --max-offset-ms: one capture's colour and depth (an Azure Kinect: up to 17 ms apart), not two
+
+
+def parse_device(text: str) -> str:
+    """``--device``: cuda (GPU 0) or cuda:N, as ``cuda:N``."""
+    if text == "cuda":
+        return "cuda:0"
+    if text.startswith("cuda:") and text[5:].isdigit():
+        return text
+    raise argparse.ArgumentTypeError(f"{text!r}: cuda (GPU 0) or cuda:N")
 
 
 @dataclass
@@ -70,18 +80,20 @@ def main(argv=None) -> int:
     parser.add_argument("--no-depth-fit", action="store_true", help="GEM-X's monocular distance, not fitted")
     parser.add_argument("--autocast", choices=["bfloat16", "none"], default="bfloat16")
     parser.add_argument("--detector-device", choices=["cuda", "cpu"], default="cuda",
-                        help="YOLOX on ONNX Runtime's CUDA build (16 ms) or on the CPU (200-450 ms)")
+                        help="YOLOX on ONNX Runtime's CUDA build on --device's GPU (16 ms) or on the CPU (200-450 ms)")
     parser.add_argument("--min-score", type=float, default=0.5)
     parser.add_argument("--min-height", type=int, default=60, help="smaller persons' boxes [px] are left out")
     parser.add_argument("--max-persons", type=int, default=6, help="the largest this many per frame")
     parser.add_argument("--gate", type=float, default=0.08, help="[m] of the depth fit (depth.py)")
-    parser.add_argument("--max-offset-ms", type=float, default=None,
-                        help="pair a colour frame with the nearest depth frame this close (default: half the "
-                             "depth's frame period, measured: each colour frame with its nearest depth frame, as a "
-                             "camera whose depth is stamped apart from its colour needs, one Azure Kinect we measured: "
-                             "11-17 ms); 0: only equal stamps")
+    parser.add_argument("--max-offset-ms", type=float, default=MAX_OFFSET_MS,
+                        help="pair a colour frame with the nearest depth frame at most this far apart, else skip it "
+                             "(counted); 20 covers the Azure Kinect's colour and depth of one capture (up to 17 ms "
+                             "apart) and the rc_visard's (equal stamps), and pairs no neighbouring frame of a 30 or "
+                             "15 Hz depth stream (default: %(default)s); 0: only equal stamps")
     parser.add_argument("--history", type=int, default=10)
-    parser.add_argument("--device", default="cuda")
+    parser.add_argument("--device", type=parse_device, default="cuda:0",
+                        help="the GPU of GEM-X and YOLOX: cuda (GPU 0) or cuda:N; a GPU that cannot be used is an "
+                             "error (default: cuda:0)")
     xblick_weights.add_arguments(parser)  # --download-only (a mode of the command line), --no-download
     add_arguments(parser)
     # --max-hz: at most 20 colour frames/s (about 10 measured; 0: every frame)
@@ -92,6 +104,9 @@ def main(argv=None) -> int:
     if args.download_only:
         return weights.store_for(parser, args).download_only(
             weights.needed(), options=weights.options(args))
+    if args.max_offset_ms < 0:
+        parser.error("--max-offset-ms: not negative")
+    mps.check()  # with CUDA_MPS_PIPE_DIRECTORY (MPS meant) its daemon has to run: else stop here
     # the options as parameters (the terminal interface shows them): read-only, but LIVE
     session = open_from_args(args)
     params = node.Parameters(session, args.node)
@@ -134,10 +149,16 @@ def main(argv=None) -> int:
     from .tracking import Tracker  # noqa: PLC0415
 
     device = torch.device(args.device)
-    if device.index is None:
-        device = torch.device("cuda", torch.cuda.current_device())
+    if device.index >= torch.cuda.device_count():  # no CUDA, or not that many GPUs: one line, never another device
+        print(f"xblick-gem-x: --device {args.device}: no such GPU ({torch.cuda.device_count()} visible)",
+              file=sys.stderr, flush=True)
+        params.close()
+        session.close()
+        return 1
     torch.cuda.set_device(device)
-    print("xblick-gem-x: loading GEM-X and YOLOX", flush=True)
+    detector_on = args.device if args.detector_device == "cuda" else "the CPU"
+    print(f"xblick-gem-x: loading GEM-X and YOLOX; GEM-X and the depth fit on {args.device}, YOLOX on {detector_on}",
+          flush=True)
     gemx = GemX(device, store.root, autocast=None if args.autocast == "none" else args.autocast)
     detector = PersonDetector(store.root, device=f"cuda:{device.index}" if args.detector_device == "cuda" else "cpu",
                               score=args.min_score)
@@ -147,7 +168,7 @@ def main(argv=None) -> int:
         key = args.bodies_key.format(camera=spec.camera, node=args.node)
         # colour limited to --max-hz, its depth the nearest within --max-offset-ms (decoded only for colour taken)
         inputs = RGBDInputs(session, spec, args.history, args.local, wake, max_hz=args.max_hz, device=device,
-                            max_offset_ns=None if args.max_offset_ms is None else round(args.max_offset_ms * 1e6))
+                            max_offset_ns=round(args.max_offset_ms * 1e6))
         report = node.Reporter(session, spec.camera, args.node, "xblick-gem-x", log_prefix=f"{spec.camera}: ",
                                max_hz=args.max_hz)
         report.watch(inputs)
@@ -210,6 +231,8 @@ def main(argv=None) -> int:
                 camera.last_stamp = stamp
                 frame = camera.prepare(camera.inputs, stamp)
                 if frame is not None:
+                    for reader in camera.inputs.readers.values():  # --local cuda without a CUDA ring: an error
+                        check_local(reader.subscriber, args.local)
                     process(camera, frame, stamp)
             for camera in cameras:
                 if camera.report.due():

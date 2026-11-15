@@ -110,7 +110,7 @@ only one of the two on a camera.
 | --- | --- | --- |
 | `--bodies-key KEY` | `{camera}/{node}/bodies` | the topic of the bodies. The node fills in `{camera}` and `{node}`. |
 | `--max-hz HZ` | 20 | the most colour frames per second that the node processes. `0` or `none` means every frame. |
-| `--max-offset-ms MS` | half the frame period of the depth stream | the largest stamp difference between a colour frame and its depth frame. `0` accepts only equal stamps. |
+| `--max-offset-ms MS` | 20 | the largest stamp difference between a colour frame and its depth frame. A colour frame without a depth frame that close is skipped and counted. `0` accepts only equal stamps. |
 | `--no-depth-fit` | off | publish the distance that GEM-X estimates from the image alone |
 | `--min-height PX` | 60 | ignore persons whose box is lower than this. Live: it changes while the node runs. |
 | `--max-persons N` | 6 | process only the N largest persons of a frame. Live: it changes while the node runs. |
@@ -167,3 +167,57 @@ is by OpenMMLab. "Requirements" lists their licences.
 
 The code of this repository is under the Apache License 2.0, see [LICENSE](LICENSE). [NOTICE](NOTICE) names the
 copyright holder and the parts of others.
+
+## Citation
+
+This node uses GEM-X (NVlabs/GEM-X, nvidia/GEM-X on Hugging Face). The GEM-X repository and its model card state no
+citation. The model card names [https://arxiv.org/abs/2505.01425](https://arxiv.org/abs/2505.01425) as its reference.
+
+The bodies are those of the body model SOMA (NVlabs/SOMA-X). If you use the node in research, cite SOMA. The entries
+below are copied from [its README](https://github.com/NVlabs/SOMA-X/blob/v0.3.3/README.md):
+
+```bibtex
+@article{soma2026,
+  title={SOMA: Unifying Parametric Human Body Models},
+  author={Jun Saito and Jiefeng Li and Michael de Ruyter and Miguel Guerrero and Edy Lim and Ehsan Hassani and Roger Blanco Ribera and Hyejin Moon and Magdalena Dadela and Marco Di Lucca and Qiao Wang and Xueting Li and Sam Wu and Chaeyeon Chung and Yeongho Seol and Jan Kautz and Simon Yuen and Umar Iqbal},
+  eprint={2603.16858},
+  archivePrefix={arXiv},
+  year={2026},
+  url={https://arxiv.org/abs/2603.16858},
+}
+```
+
+The person detector is a YOLOX model of OpenMMLab's RTMPose project. Cite YOLOX The entries below are copied from [its
+README](https://github.com/Megvii-BaseDetection/YOLOX/blob/0.1.1rc0/README.md):
+
+```bibtex
+ @article{yolox2021,
+  title={YOLOX: Exceeding YOLO Series in 2021},
+  author={Ge, Zheng and Liu, Songtao and Wang, Feng and Li, Zeming and Sun, Jian},
+  journal={arXiv preprint arXiv:2107.08430},
+  year={2021}
+}
+```
+
+and the RTMPose project, whose detector file the node downloads. The entries below are copied from [its
+README](https://github.com/open-mmlab/mmpose/blob/v1.3.2/projects/rtmpose/README.md):
+
+```bibtex
+@misc{https://doi.org/10.48550/arxiv.2303.07399,
+  doi = {10.48550/ARXIV.2303.07399},
+  url = {https://arxiv.org/abs/2303.07399},
+  author = {Jiang, Tao and Lu, Peng and Zhang, Li and Ma, Ningsheng and Han, Rui and Lyu, Chengqi and Li, Yining and Chen, Kai},
+  keywords = {Computer Vision and Pattern Recognition (cs.CV), FOS: Computer and information sciences, FOS: Computer and information sciences},
+  title = {RTMPose: Real-Time Multi-Person Pose Estimation based on MMPose},
+  publisher = {arXiv},
+  year = {2023},
+  copyright = {Creative Commons Attribution 4.0 International}
+}
+
+@misc{mmpose2020,
+    title={OpenMMLab Pose Estimation Toolbox and Benchmark},
+    author={MMPose Contributors},
+    howpublished = {\url{https://github.com/open-mmlab/mmpose}},
+    year={2020}
+}
+```

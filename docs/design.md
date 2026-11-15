@@ -139,9 +139,9 @@ differ.
 | `--min-height PX` | 60 | the least height of a person's box. Live: it changes while the node runs. |
 | `--max-persons N` | 6 | the most persons per frame. Live: it changes while the node runs. |
 | `--gate M` | 0.08 | the gate of the depth fit in metres. Live: it changes while the node runs. |
-| `--max-offset-ms MS` | half the frame period of the depth stream | the largest stamp difference between a colour frame and its depth frame. `0` accepts only equal stamps. |
+| `--max-offset-ms MS` | 20 | the largest stamp difference between a colour frame and its depth frame. A colour frame without a depth frame that close is skipped and counted. `0` accepts only equal stamps. |
 | `--history N` | 10 | the number of frames that the node keeps per stream for the pairing |
-| `--device` | `cuda` | the CUDA device of GEM-X and YOLOX |
+| `--device` | `cuda` | the GPU of GEM-X and YOLOX: `cuda` is GPU 0, `cuda:N` is GPU N. A GPU that cannot be used ends the node with one line. |
 | `--max-hz HZ` | 20 | the most colour frames per second. `0` or `none` means every frame. |
 | `--local` | `auto` | `auto`, `shm` or `cuda`, see below |
 | `--connect`, `--listen`, `--zenoh-mode`, `--config` | the router of this PC | Durchblick's session options |
@@ -150,8 +150,10 @@ differ.
 frames. The node decodes a depth frame only for a colour frame that it takes.
 
 **`--max-offset-ms`.** The node pairs each colour frame with the nearest depth frame within this offset. The default
-is half the frame period of the depth stream, which the node measures. A camera that stamps depth and colour apart
-needs this. One Azure Kinect that we measured is an example, with 11 to 17 ms between the stamps.
+is a fixed 20 ms. It covers the cameras that we use: an Azure Kinect stamps the colour and the depth of one capture up
+to 17 ms apart (with auto exposure), and the rc_visard gives a depth frame the stamp of its left image. A colour frame
+whose own depth frame is missing is skipped and counted. It is not paired with a depth frame 33 ms or more away, which
+is a neighbouring frame of a 30 Hz or 15 Hz camera.
 
 **`--local`.** This option selects how frames of a camera on the same host reach the node. A *CUDA ring* is a ring
 in GPU memory that the camera fills. A reader on the same GPU reads a frame from it without a copy to the CPU.

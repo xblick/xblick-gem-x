@@ -1,7 +1,7 @@
 # AGENTS.md
 
 xblick-gem-x: NVIDIA's GEM-X Body Pose as a Durchblick node. 3D bodies of people from any colour camera with
-depth, published in the Azure Kinect tracker's JSON. Version 0.2.4, tested only on a synthetic RGB-D recording.
+depth, published in the Azure Kinect tracker's JSON. Version 0.2.5, tested only on a synthetic RGB-D recording.
 Human documentation: `README.md` (topics, options, limits), `docs/design.md` (steps, message, setup),
 `docs/performance.md`. Transport-wide traps (Zenoh sessions, CUDA rings, looped playback, hanging
 tests) are in the core's `AGENTS.md` (github.com/xblick/xblick). Style of all documentation: the core's
@@ -93,7 +93,7 @@ tools/setup.sh                                   # uv sync --frozen, then xblick
 | Bodies topic | `<camera>/gem_x/bodies` (`--bodies-key {camera}/{node}/bodies`), JSON, `source` `gem-x` |
 | Diagnostics | `<camera>/diagnostics`, status `gem_x`, once per second |
 | `--max-hz` | 20 |
-| `--max-offset-ms` | half the depth's frame period |
+| `--max-offset-ms` | 20 (fixed) |
 | `--local` | `auto` (`shm`, `cuda`) |
 | `--autocast` | `bfloat16` (`none`) |
 | `--detector-device` | `cuda` (`cpu`) |
