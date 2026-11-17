@@ -136,6 +136,31 @@ The node needs 59 to 60 ms per frame with two persons on an RTX PRO 6000.
 
 [Accuracy and speed](docs/performance.md) has the measurements and their setup.
 
+## ROS 2
+
+The branch `ros2` of this repository takes the core from its branch `ros2`, which is not released. `uv sync` then builds
+the core's C++ part from source, which needs a C++ compiler. The core adds the option `--ros`: the node then also takes
+part in ROS 2 on `rmw_zenoh`, and its own topics stay as they are. Without `--ros` nothing changes.
+
+```bash
+.venv/bin/xblick-gem-x --camera test/camera --ros
+```
+
+| ROS 2 topic | ROS type |
+| --- | --- |
+| `/<camera>/diagnostics` | `diagnostic_msgs/msg/DiagnosticArray` |
+
+ROS 2 does not get the bodies (JSON, no ROS type; one warning line at the start). The node sends a topic to ROS only
+while a ROS subscriber reads it. The program is the ROS node `/xblick_gem_x` (`--ros-node`), and its parameters are the
+ROS node `/<camera>/gem_x`. ROS clients read the parameters and may set them only when the node was started with
+`--ros-params-writable`.
+
+Each part of `--camera` and `--node` has to be a ROS name: letters, digits and `_`, not starting with a digit. Otherwise
+`--ros` stops the node at its start with one line. A test checks the diagnostics of a stand-in model against our own ROS
+subscriber; no ROS 2 installation and no real model were used for this node. [Durchblick and ROS
+2](https://github.com/xblick/xblick/blob/ros2/docs/integrations/ros2.md) describes the option, the other `--ros-*`
+options and ROS 2's tools.
+
 ## Limits
 
 - We tested the node only on a synthetic RGB-D recording. We have not tested it on a real camera or on a robot.
