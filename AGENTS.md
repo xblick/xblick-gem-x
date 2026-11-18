@@ -46,7 +46,7 @@ tools/setup.sh                                   # uv sync --frozen, then xblick
   `~/.cache/xblick/gem-x/.download.lock`. Never let a partial or unchecked file get its final name. No fallbacks.
 - Treat the bodies JSON as a contract. Its layout is xblick-azure-kinect's (`skeleton.py`). Readers (the core's
   Rerun bridge, other readers of the Azure Kinect bodies) take either. Change it only together with them.
-- Durchblick pin: `xblick>=0.5.5,<0.6`, the core's Python package (`xblick.rgbd` with `max_hz` and `max_offset_ns`,
+- Durchblick pin: `xblick>=0.5.14,<0.6`, the core's Python package (`xblick.rgbd` with `max_hz` and `max_offset_ns`,
   `xblick.node`, `CountedPublisher` for the attachment).
 - 120 columns. Docstrings say what, comments say why.
 - Update `README.md` and `docs/` with every change of behaviour.
