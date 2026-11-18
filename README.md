@@ -37,8 +37,8 @@ camera. [How the node works](docs/design.md) describes the message and the four 
 | GPU | an NVIDIA GPU with CUDA |
 | VRAM | 7.5 GiB with one person in view (the node alone, 1280 x 720 at 30 frames per second, measured 2026-11-02) |
 | Durchblick | 0.5 or newer, below 0.6 (Python package `xblick`) |
-| Python | 3.12, which `tools/setup.sh` installs into `.venv` |
-| Tools for the setup | uv and git |
+| Python | 3.12, which uv installs with the node |
+| Tools for the install | uv and git |
 | Disk | 3.5 GB for the GEM-X weights, plus the SOMA assets and the detector |
 
 Model licences:
@@ -50,9 +50,31 @@ Model licences:
 | SOMA body assets | Apache-2.0 |
 | YOLOX-X HumanArt person detector | Published by OpenMMLab, who state no licence for the model file. It comes from OpenMMLab's download and is separate from GEM-X, as in GEM-X's own instructions. It is trained on COCO and Human-Art, and Human-Art is offered for non-commercial purposes only: check whether you may use the detector for your purpose. |
 
-The setup fetches the GEM-X code, and the node downloads the three others. This repository contains no copy of them.
+The install fetches the GEM-X code, and the node downloads the three others. This repository contains no copy of them.
 
 ## Install
+
+Install the node with uv, or clone this repository for development.
+
+### With uv
+
+```bash
+uv tool install git+https://github.com/xblick/xblick-gem-x@v0.2.6
+xblick-gem-x --download-only
+```
+
+uv puts `xblick-gem-x` on PATH, in an environment of its own, with PyTorch for CUDA 13, Python 3.12 and the GEM-X
+code at the commit that `pyproject.toml` fixes. It resolves the other dependencies afresh within the bounds of
+`pyproject.toml`: `uv.lock` applies only to a clone. `xblick-gem-x --download-only` downloads the weights into
+`~/.cache/xblick/gem-x/`.
+
+`uv tool upgrade xblick-gem-x` updates the dependencies within the bounds of the installed version. A newer version
+is the same install command with its tag. `uv tool uninstall xblick-gem-x` removes the node. The weights stay in the
+cache directory.
+
+### From a clone
+
+For development, and for the versions that `uv.lock` fixes:
 
 ```bash
 tools/setup.sh
@@ -61,13 +83,11 @@ tools/setup.sh
 The script creates `.venv` exactly as `uv.lock` states. Then it runs `xblick-gem-x --download-only`, which
 downloads the weights into `~/.cache/xblick/gem-x/`. It downloads only what is missing, so you can run it again after an update.
 
+### Downloads at the start
+
 The node itself also downloads missing weights at its start, before it loads the models. Before a download it
 prints the models' terms from the table above, the files and their size. A preparation script downloads without a
-start:
-
-```bash
-.venv/bin/xblick-gem-x --download-only
-```
+start with `xblick-gem-x --download-only` (`.venv/bin/xblick-gem-x` in a clone).
 
 `--download-only` needs no camera, no Zenoh router and no GPU, and it exits with 0 when the weights are complete. A
 machine that must never start a download on its own, such as a robot, starts the node with `--no-download`. The
@@ -76,8 +96,8 @@ node then ends at once when a file is missing, and it names the file.
 ### Where the weights are
 
 The node keeps its weights in its cache directory, `~/.cache/xblick/gem-x/`. `XBLICK_HOME=/dir` moves it to `/dir/cache/gem-x/`,
-and `XDG_CACHE_HOME` moves it as well. `--weights-dir DIR` names another directory. The place is the same for a
-checkout and for a pip install. [Where files are](https://github.com/xblick/xblick/blob/main/docs/reference/files.md) lists the places, and it shows how to copy the cache to a
+and `XDG_CACHE_HOME` moves it as well. `--weights-dir DIR` names another directory. The place is the same for an
+install with uv and for a clone. [Where files are](https://github.com/xblick/xblick/blob/main/docs/reference/files.md) lists the places, and it shows how to copy the cache to a
 PC without internet.
 
 Up to version 0.2.3, the weights were in the checkout's `weights/`. The node does not read them there. At its start it
@@ -90,9 +110,10 @@ mkdir -p ~/.cache/xblick && mv weights ~/.cache/xblick/gem-x
 ## Run
 
 Start a Zenoh router (`zenohd`) on the PC, then start the node for one camera. The camera names below are examples.
+In a clone the commands are in `.venv/bin/`.
 
 ```bash
-.venv/bin/xblick-gem-x --camera cam/azurekinect:depth=depth_to_color
+xblick-gem-x --camera cam/azurekinect:depth=depth_to_color
 ```
 
 A camera specification has the form `CAMERA[:color=NAME][:depth=NAME]`. Repeat `--camera` for several cameras. The
@@ -100,7 +121,7 @@ second example reads a stereo camera whose depth comes from xblick-fast-foundati
 bodies on the topic of the Azure Kinect tracker.
 
 ```bash
-.venv/bin/xblick-gem-x --camera cam/rc_visard:color=left:depth=ffs/depth --bodies-key "{camera}/bodies"
+xblick-gem-x --camera cam/rc_visard:color=left:depth=ffs/depth --bodies-key "{camera}/bodies"
 ```
 
 With `--bodies-key "{camera}/bodies"` the node replaces the Azure Kinect tracker for the readers of that topic. Run
@@ -119,7 +140,7 @@ only one of the two on a camera.
 | `--download-only` | off | download the missing weights, check them and end. `--camera` may be left out. |
 | `--weights-dir DIR` | the cache directory | where the weights are and go, in place of `~/.cache/xblick/gem-x/` |
 
-`.venv/bin/xblick-gem-x --help` lists all options, and [How the node works](docs/design.md) explains them.
+`xblick-gem-x --help` lists all options, and [How the node works](docs/design.md) explains them.
 
 Every option is also a parameter of the node `gem_x`, which Durchblick's terminal interface (`xblick`, tab Parameters) and `xblick param` show. `min_score`, `min_height`, `max_persons` and `gate` change while the node runs. The other options apply at the next start, where `--param NAME:=VALUE` or `--params-file FILE` set them. `--download-only` is a mode of the command line and has no parameter.
 
