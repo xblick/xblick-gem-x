@@ -89,7 +89,7 @@ class ZipMember:
             raise
         if digest != self.sha256:
             raise WeightsError(f"{store.short(archive)}: wrong SHA-256 ({digest}, expected {self.sha256}): not the "
-                               "archive this node was tested with; remove it, then start again")
+                               "archive this node expects; remove it, then start again")
         try:
             with zipfile.ZipFile(archive) as z:
                 names = fnmatch.filter(z.namelist(), self.member)

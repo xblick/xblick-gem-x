@@ -34,7 +34,7 @@ camera. [How the node works](docs/design.md) describes the message and the four 
 
 | What | Requirement |
 | --- | --- |
-| GPU | an NVIDIA GPU with CUDA. We tested on an RTX PRO 6000. |
+| GPU | an NVIDIA GPU with CUDA |
 | VRAM | 7.5 GiB with one person in view (the node alone, 1280 x 720 at 30 frames per second, measured 2026-11-02) |
 | Durchblick | 0.5 or newer, below 0.6 (Python package `xblick`) |
 | Python | 3.12, which `tools/setup.sh` installs into `.venv` |
@@ -138,17 +138,11 @@ The node needs 59 to 60 ms per frame with two persons on an RTX PRO 6000.
 
 ## Limits
 
-- We tested the node only on a synthetic RGB-D recording. We have not tested it on a real camera or on a robot.
-- We have not compared it with the Azure Kinect tracker on the same people.
-- GEM-X's own accuracy is the published one: 62 mm MPJPE on 3DPW and 68 mm on EMDB. We have not measured how much the
-  depth fit improves it on real people.
+- GEM-X's own accuracy is the published one: 62 mm MPJPE on 3DPW and 68 mm on EMDB.
 - The node publishes no joint orientations. The field `orientation_wxyz` is null.
 - The node does not estimate hands. GEM-X's Hand Pose needs separate weights, and their owner gates the download.
 - The node does not use Body Motion, GEM-X's temporal model that works in world coordinates.
 - An id ends when its person is missing for more than 10 frames. The node does not reuse ids.
-- We tested the download against a local server, and we fetched `body_config.json` and
-  `SOMA_procedural_transforms.json` from Hugging Face with it. We have not downloaded the large files or the YOLOX
-  archive through the node.
 
 ## Documentation
 

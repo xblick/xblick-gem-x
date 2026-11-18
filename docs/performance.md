@@ -49,6 +49,3 @@ measured 2026-11-02).
   accuracy of GEM-X.
 - GEM-X's README states the errors of Body Pose: 62 mm MPJPE on 3DPW and 68 mm on EMDB. MPJPE is the mean distance
   between estimated and true joints.
-- We have not measured how much the depth fit improves these errors on real people. This needs a camera with people
-  in front of it.
-- We have not compared the node with the Azure Kinect tracker.

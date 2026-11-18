@@ -176,7 +176,7 @@ it works. We checked this with the network refused.
 | YOLOX-X HumanArt | OpenMMLab's archive | the archive's SHA-256 in `weights.py` |
 
 Two CUDA versions work in one process. PyTorch uses CUDA 13. The CUDA build of ONNX Runtime brings CUDA 12 libraries
-as `nvidia-*` wheels, and the node loads them before it creates the detector. We tested both in one process.
+as `nvidia-*` wheels, and the node loads them before it creates the detector.
 
 SOMA computes its mesh with Warp, which compiles GPU kernels at the first use and caches them. The node sets the
 cache to `warp-cache` in the node's cache directory, `~/.cache/xblick/gem-x/warp-cache`.
