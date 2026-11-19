@@ -34,11 +34,11 @@ camera. [How the node works](docs/design.md) describes the message and the four 
 
 | What | Requirement |
 | --- | --- |
-| GPU | an NVIDIA GPU with CUDA |
+| GPU | an NVIDIA GPU with driver 580 or newer (PyTorch for CUDA 13) |
 | VRAM | 7.5 GiB with one person in view (the node alone, 1280 x 720 at 30 frames per second, measured 2026-11-02) |
 | Durchblick | 0.5 or newer, below 0.6 (Python package `xblick`) |
 | Python | 3.12, which uv installs with the node |
-| Tools for the install | uv and git |
+| Tools for the install | git and uv (step 1 of the installation installs them) |
 | Disk | 3.5 GB for the GEM-X weights, plus the SOMA assets and the detector |
 
 Model licences:
@@ -54,31 +54,67 @@ The install fetches the GEM-X code, and the node downloads the three others. Thi
 
 ## Install
 
-Install the node with uv, or clone this repository for development.
+1. Install the prerequisites. `nvidia-smi` prints the GPU and the driver version, which must be 580 or newer. On
+   Ubuntu, `sudo apt install nvidia-driver-580` and a restart install that driver. After the installation of uv, open
+   a new terminal, so that `uv` is on `PATH`.
 
-### With uv
+   ```bash
+   nvidia-smi
+   sudo apt install git
+   wget -qO- https://astral.sh/uv/install.sh | sh
+   ```
 
-```bash
-uv tool install git+https://github.com/xblick/xblick-gem-x@v0.2.6
-xblick-gem-x --download-only
-```
+2. Install the node and download its weights:
 
-uv puts `xblick-gem-x` on PATH, in an environment of its own, with PyTorch for CUDA 13, Python 3.12 and the GEM-X
-code at the commit that `pyproject.toml` fixes. It resolves the other dependencies afresh within the bounds of
-`pyproject.toml`: `uv.lock` applies only to a clone. `xblick-gem-x --download-only` downloads the weights into
-`~/.cache/xblick/gem-x/`.
+   ```bash
+   uv tool install git+https://github.com/xblick/xblick-gem-x@v0.2.7
+   xblick-gem-x --download-only
+   ```
 
-`uv tool upgrade xblick-gem-x` updates the dependencies within the bounds of the installed version. A newer version
-is the same install command with its tag. `uv tool uninstall xblick-gem-x` removes the node. The weights stay in the
-cache directory.
+   uv puts `xblick-gem-x` on `PATH`, in an environment of its own, with PyTorch for CUDA 13 (about 3 GB to download,
+   7 GB on disk), Python 3.12 and the GEM-X code at the commit that `pyproject.toml` fixes. It resolves the other
+   dependencies afresh within the bounds of `pyproject.toml`: `uv.lock` applies only to a clone.
+   `xblick-gem-x --download-only` prints the models' terms and downloads the weights into `~/.cache/xblick/gem-x/`:
+   GEM-X's Body Pose (3.5 GB), SOMA's body assets and the person detector, each with its progress.
+
+   `uv tool upgrade xblick-gem-x` updates the dependencies within the bounds of the installed version. A newer
+   version is the same install command with its tag. `uv tool uninstall xblick-gem-x` removes the node. The weights
+   stay in the cache directory.
+
+3. Install the core's command `xblick` with the viewer, video files and webcams. uv puts it on `PATH`. A second
+   `uv tool install` of xblick with other extras replaces the first and removes what only the first had, so every
+   xblick node names this one line:
+
+   ```bash
+   uv tool install "xblick[rerun,video,cam]>=0.5,<0.6"
+   ```
+
+4. Start the node on a camera with a depth stream in the geometry of its colour camera: the node fits each body to
+   the depth and waits for depth frames. [xblick-azure-kinect](https://github.com/xblick/xblick-azure-kinect)
+   publishes such a camera, `cam/azurekinect` with the depth `depth_to_color`. Run each command in its own terminal.
+   If the PC already runs a Zenoh router (`xblick router` or `zenohd`), leave out the first one.
+
+   ```bash
+   xblick router                                         # the Zenoh router of this PC
+   xblick-gem-x --camera cam/azurekinect:depth=depth_to_color
+   xblick rerun                                          # the viewer
+   ```
+
+   The viewer shows each person in view as a skeleton over the colour image and in its 3D view.
 
 ### From a clone
 
 For development, and for the versions that `uv.lock` fixes:
 
 ```bash
+git clone https://github.com/xblick/xblick-gem-x.git
+cd xblick-gem-x
 tools/setup.sh
 ```
+
+When git or uv is missing, the script stops and prints the command that installs it. Without an NVIDIA GPU with
+driver 580 or newer it says so and goes on. `tools/setup.sh --help` describes it. In a clone the commands are in
+`.venv/bin/`.
 
 The script creates `.venv` exactly as `uv.lock` states. Then it runs `xblick-gem-x --download-only`, which
 downloads the weights into `~/.cache/xblick/gem-x/`. It downloads only what is missing, so you can run it again after an update.
@@ -109,7 +145,8 @@ mkdir -p ~/.cache/xblick && mv weights ~/.cache/xblick/gem-x
 
 ## Run
 
-Start a Zenoh router (`zenohd`) on the PC, then start the node for one camera. The camera names below are examples.
+Start a Zenoh router (`xblick router` or `zenohd`) on the PC, then start the node for one camera. The camera
+names below are examples.
 In a clone the commands are in `.venv/bin/`.
 
 ```bash
