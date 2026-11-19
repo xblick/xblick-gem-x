@@ -92,10 +92,13 @@ def k4abt_joints(joints: np.ndarray, valid: np.ndarray) -> np.ndarray:
     return out, confidence
 
 
-def bodies_message(stamp_ns: int, frame_id: str, latency_ms: float, bodies: list[dict]) -> bytes:
+def bodies_message(stamp_ns: int, frame_id: str, latency_ms: float, bodies: list[dict],
+                   depth: str | None = None) -> bytes:
     """xblick-azure-kinect's bodies JSON (model K4ABT_BODY_32, positions in mm in ``frame_id``); per body also
     ``soma77_mm`` (GEM-X's own 77 joints, SOMA77's order) and ``depth_fit`` (the depth correction, depth.py).
-    ``bodies``: dicts of id, joints (77, 3) [m], valid (77,), depth_fit (dict)."""
+    ``bodies``: dicts of id, joints (77, 3) [m], valid (77,), depth_fit (dict). ``depth``: ``"none"`` for a node
+    without a depth stream (--no-depth: the positions are GEM-X's estimate from the image), then a key of the
+    message; None (the RGB-D path) leaves the key out, so that message is as before."""
     out = []
     for b in bodies:
         k4a, confidence = k4abt_joints(b["joints"], b["valid"])
@@ -106,5 +109,9 @@ def bodies_message(stamp_ns: int, frame_id: str, latency_ms: float, bodies: list
             "soma77_mm": (np.asarray(b["joints"]) * 1000).round(1).tolist(),
             "depth_fit": b["depth_fit"],
         })
-    return json.dumps({"v": 1, "model": "K4ABT_BODY_32", "source": "gem-x", "stamp_ns": int(stamp_ns),
-                       "frame_id": frame_id, "latency_ms": round(float(latency_ms), 1), "bodies": out}).encode()
+    message = {"v": 1, "model": "K4ABT_BODY_32", "source": "gem-x", "stamp_ns": int(stamp_ns), "frame_id": frame_id,
+               "latency_ms": round(float(latency_ms), 1)}
+    if depth is not None:
+        message["depth"] = depth
+    message["bodies"] = out
+    return json.dumps(message).encode()

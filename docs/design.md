@@ -18,6 +18,10 @@ flowchart LR
 The node reads each camera through `xblick.rgbd`. This module pairs a colour frame with a depth frame by their
 stamps. It scales the colour frame to the resolution of the depth frame and removes the lens distortion.
 
+With `--no-depth` the node reads the colour stream alone (`color.py`) and skips step 4: it subscribes to no depth
+stream, keeps the colour frame at its own resolution and removes the lens distortion in the same way. See
+[Without depth](#without-depth).
+
 ### 1. Persons
 
 YOLOX-X finds the persons in the colour frame. The model is OpenMMLab's HumanArt ONNX model, which is the detector
@@ -65,7 +69,28 @@ The fit works in three steps.
    objects in front of the person and the background behind the silhouette.
 
 The fit needs at least 100 pixels with depth in step 1 and in step 3. With fewer pixels the body keeps the distance
-of GEM-X, and `depth_fit` is null. `--no-depth-fit` switches the fit off for all bodies.
+of GEM-X, and `depth_fit` is null. `--no-depth-fit` switches the fit off for all bodies, but the node still reads the
+depth stream and waits for it: a colour frame without its depth frame is not processed.
+
+### Without depth
+
+`--no-depth` runs the node on a colour stream alone, for example a video that `xblick play` publishes. A camera is
+then `CAMERA[:color=NAME]`; a `depth=` in it is an error. The node subscribes to no depth stream. Steps 1 to 3 are
+the same, step 4 is left out. What changes in the result:
+
+| Part of the message | With depth (default) | `--no-depth` |
+| --- | --- | --- |
+| joint positions (`position_mm`, `soma77_mm`) | GEM-X's body, moved along its ray onto the measured depth | GEM-X's body as it is: the size from its learned body shape, the distance from that size, the image and the intrinsics |
+| `depth_fit` of a body | the fit, or null when it had too few pixels | always null |
+| `depth` of the message | not present | `"none"` |
+| the image size the node works at | the depth stream's | the colour stream's |
+
+The poses and the joints' projections into the image come from the image in both cases. The distance from the
+camera, and with it every position in the camera frame, is an estimate without depth. It is wrong in proportion for
+a person of unusual size, and it depends on the intrinsics of the colour stream's camera_info: `xblick play` and
+`xblick cam` publish an assumed field of view of 60 degrees unless a calibration is given, so the distances are then
+assumed as well. The node never makes up a depth. Without `--no-depth` the node needs the depth stream as before; it
+never switches to colour alone by itself. `--no-depth` and `--no-depth-fit` exclude each other.
 
 ## The bodies message
 
@@ -89,6 +114,9 @@ with its readers.
 | `joints` | the 32 joints of the Azure Kinect by name. Each has `position_mm`, `orientation_wxyz` and `confidence`. |
 | `soma77_mm` | all 77 SOMA joints in mm, in the order of `SOMA77` in `skeleton.py` |
 | `depth_fit` | `shift_m`, `pixels`, `inliers` and `residual_m` of the depth fit, or null without a fit |
+
+With `--no-depth` the message also has `depth` with the value `"none"`, before `bodies`: its positions are GEM-X's
+estimate from the image. Without `--no-depth` the message has no `depth` field, as in the versions before 0.2.8.
 
 `shift_m` is the change of the depth along the camera's z axis. A positive value means that GEM-X placed the body
 too near. `pixels` counts the visible pixels of the body that have a measured depth. `inliers` counts those within
@@ -132,7 +160,8 @@ differ.
 | `--camera SPEC` | required | `CAMERA[:color=NAME][:depth=NAME]`. Repeat it for several cameras. |
 | `--node NAME` | `gem_x` | the node's part of the topic and the name of its diagnostics status |
 | `--bodies-key KEY` | `{camera}/{node}/bodies` | the topic of the bodies. The node fills in `{camera}` and `{node}`. |
-| `--no-depth-fit` | off | publish the distance that GEM-X estimates from the image alone |
+| `--no-depth-fit` | off | publish the distance that GEM-X estimates from the image alone. The node still reads and waits for the depth stream. |
+| `--no-depth` | off | colour only: no depth stream (a camera is `CAMERA[:color=NAME]`), no depth fit, `"depth": "none"` in the message. See [Without depth](#without-depth). |
 | `--autocast` | `bfloat16` | `bfloat16` or `none` (float32) for GEM-X |
 | `--detector-device` | `cuda` | `cuda` or `cpu` for YOLOX |
 | `--min-score` | 0.5 | the least score of a person. Live: it changes while the node runs. |
@@ -166,7 +195,7 @@ The node rejects a camera specification with a segmenter, a camera that appears 
 ## Setup
 
 `tools/setup.sh` installs the code. The node downloads its weights ("Weights" below). It downloads nothing while
-it works. We checked this with the network refused.
+it works.
 
 | Part | Source | How the version is fixed |
 | --- | --- | --- |
@@ -186,7 +215,7 @@ cache to `warp-cache` in the node's cache directory, `~/.cache/xblick/gem-x/warp
 `weights.py` lists the files that the node reads. It takes the file names and revisions from `gemx.py` and adds the
 YOLOX archive, its SHA-256, the exact sizes and the SHA-256 of each Hugging Face file. Those are the values that
 Hugging Face states for the files at the fixed revisions (`lfs.oid`). For the two small JSON files they are the
-hashes of the files at the revisions. All agree with copies that we downloaded earlier. The extracted
+hashes of the files at the revisions. The extracted
 `yolox_humanart.onnx` has no SHA-256 of its own, because no source states one. The SHA-256 of its archive covers it. The node and `tools/setup.sh` use this one list. The download itself (lock, `.part` files, checks, progress) is the core's `xblick.weights`:
 `weights.STORE` is the node's `xblick.weights.Store`. Its root is the node's cache directory, `~/.cache/xblick/gem-x/`
 (`XBLICK_HOME`, `XDG_CACHE_HOME`, `--weights-dir`). The checkout's `weights/` is the former place: the node does not
@@ -228,3 +257,4 @@ server, and `HF_HUB_OFFLINE=1` prevents the Hugging Face downloads.
 | `tests/test_helpers.py` | CPU | the overlap of boxes and the ids of the tracker, the skeleton mapping and its JSON, the SOMA joints against the rig, the depth fit. The fit finds a shift with a third of the surface occluded. |
 | `tests/test_weights.py` | CPU, a local HTTP server | the files, their revisions and SHA-256, YOLOX out of its checked archive and a changed archive, a changed Hugging Face file refused, the node's `STORE`, `--download-only` and `--no-download`, a start that stops after its weights step without a GPU. The download itself: the core's tests |
 | `tests/test_gemx.py` | a CUDA device and the weights in the cache directory | a body with the anatomy of a person, with the mapped joints where they belong. An empty image gives no person. |
+| `tests/test_color.py` | CPU, a router on a loopback port; the two node tests a CUDA device and the weights | `--no-depth`: the camera without depth, `"depth": "none"` only then, colour frames without any depth stream at the colour stream's size and intrinsics, the two options excluding each other, a camera with `depth=` refused; the node with `--no-depth` publishing from a colour stream alone, and without it publishing nothing while no depth comes. |

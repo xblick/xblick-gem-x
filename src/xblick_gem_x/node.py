@@ -2,13 +2,19 @@
 Kinect's body tracking (xblick-azure-kinect's xblick-k4abt) that runs on any colour camera with depth.
 
     xblick-gem-x --camera CAMERA[:color=NAME][:depth=NAME] [--camera ...] [--node gem_x]
-                     [--bodies-key KEY] [--no-depth-fit] [--autocast none] [--no-download]
+                     [--bodies-key KEY] [--no-depth-fit | --no-depth] [--autocast none] [--no-download]
 
 A camera is ``<CAMERA>/<color>`` and ``<CAMERA>/<depth>`` (16UC1 mm in the colour camera's geometry), paired by stamp,
 at the depth's resolution, undistorted (xblick.rgbd). Per frame: YOLOX's persons (boxes at least --min-height px
 tall, score over --min-score), matched to the persons of the frames before by their boxes' overlap (tracking.py: an id
 per person); GEM-X's body of each (one batch); each body moved along its ray until its visible surface lies on the
 measured depth (depth.py; ``--no-depth-fit``: GEM-X's monocular distance as it is).
+
+``--no-depth``: the colour stream alone (color.py; a camera ``CAMERA[:color=NAME]``, no depth stream subscribed to),
+at the colour stream's resolution, undistorted as on the RGB-D path. The bodies are GEM-X's as they are: their size
+from GEM-X's learned body shape, their distance from that size, the image and the colour camera_info's intrinsics
+(an assumed field of view gives assumed distances), never fitted. The message then says so: ``"depth": "none"``,
+and every body's ``depth_fit`` is null. Without the option the node needs the depth stream, as before.
 
 Published per camera, stamped as the frame: ``--bodies-key`` (default ``<CAMERA>/<node>/bodies``; ``{camera}`` and
 ``{node}`` are filled in), JSON as xblick-azure-kinect's bodies (skeleton.py: model K4ABT_BODY_32, positions in mm
@@ -77,7 +83,12 @@ def main(argv=None) -> int:
     parser.add_argument("--node", default=NODE)
     parser.add_argument("--bodies-key", default="{camera}/{node}/bodies",
                         help="where the bodies go ({camera}/bodies: in the Azure Kinect tracker's place)")
-    parser.add_argument("--no-depth-fit", action="store_true", help="GEM-X's monocular distance, not fitted")
+    without = parser.add_mutually_exclusive_group()
+    without.add_argument("--no-depth-fit", action="store_true", help="GEM-X's monocular distance, not fitted")
+    without.add_argument("--no-depth", action="store_true",
+                         help="colour only: no depth stream (a camera is CAMERA[:color=NAME]); the bodies' "
+                              "distances are GEM-X's estimate from the image and the intrinsics, never fitted, and "
+                              "the message says \"depth\": \"none\"")
     parser.add_argument("--autocast", choices=["bfloat16", "none"], default="bfloat16")
     parser.add_argument("--detector-device", choices=["cuda", "cpu"], default="cuda",
                         help="YOLOX on ONNX Runtime's CUDA build on --device's GPU (16 ms) or on the CPU (200-450 ms)")
@@ -114,7 +125,9 @@ def main(argv=None) -> int:
     params.declare_options(parser, args, live=LIVE, leave_out=("node", "download_only"))
     params.check_overrides()
     try:
-        specs = [CameraSpec.parse(c) for c in args.camera]
+        from .color import color_only_spec  # noqa: PLC0415
+
+        specs = [color_only_spec(c) if args.no_depth else CameraSpec.parse(c) for c in args.camera]
         for spec in specs:
             topics.check_name(spec.camera)
             if spec.segmenter is not None:
@@ -157,8 +170,12 @@ def main(argv=None) -> int:
         return 1
     torch.cuda.set_device(device)
     detector_on = args.device if args.detector_device == "cuda" else "the CPU"
-    print(f"xblick-gem-x: loading GEM-X and YOLOX; GEM-X and the depth fit on {args.device}, YOLOX on {detector_on}",
-          flush=True)
+    if args.no_depth:
+        print(f"xblick-gem-x: loading GEM-X and YOLOX; GEM-X on {args.device}, YOLOX on {detector_on}; colour only "
+              "(--no-depth): distances estimated from the image, not measured", flush=True)
+    else:
+        print(f"xblick-gem-x: loading GEM-X and YOLOX; GEM-X and the depth fit on {args.device}, YOLOX on "
+              f"{detector_on}", flush=True)
     gemx = GemX(device, store.root, autocast=None if args.autocast == "none" else args.autocast)
     detector = PersonDetector(store.root, device=f"cuda:{device.index}" if args.detector_device == "cuda" else "cpu",
                               score=args.min_score)
@@ -167,16 +184,23 @@ def main(argv=None) -> int:
     for spec in specs:
         key = args.bodies_key.format(camera=spec.camera, node=args.node)
         # colour limited to --max-hz, its depth the nearest within --max-offset-ms (decoded only for colour taken)
-        inputs = RGBDInputs(session, spec, args.history, args.local, wake, max_hz=args.max_hz, device=device,
-                            max_offset_ns=round(args.max_offset_ms * 1e6))
+        if args.no_depth:  # the colour stream alone (color.py)
+            from .color import ColorInputs, ColorPreparer  # noqa: PLC0415
+
+            inputs, preparer = ColorInputs(session, spec, args.history, args.local, wake, max_hz=args.max_hz,
+                                           device=device), ColorPreparer(device)
+        else:
+            inputs = RGBDInputs(session, spec, args.history, args.local, wake, max_hz=args.max_hz, device=device,
+                                max_offset_ns=round(args.max_offset_ms * 1e6))
+            preparer = FramePreparer(device)
         report = node.Reporter(session, spec.camera, args.node, "xblick-gem-x", log_prefix=f"{spec.camera}: ",
                                max_hz=args.max_hz)
         report.watch(inputs)
         # the attachment (seq, publish_ns) as every Durchblick sample has it: the bodies' age at send
-        cameras.append(Camera(spec, inputs, FramePreparer(device),
+        cameras.append(Camera(spec, inputs, preparer,
                               CountedPublisher(session, key, zenoh.Encoding.APPLICATION_JSON, source="gem-x"),
                               Tracker(), report))
-        print(f"xblick-gem-x: {spec} -> {key}", flush=True)
+        print(f"xblick-gem-x: {spec}{' (colour only)' if args.no_depth else ''} -> {key}", flush=True)
 
     def process(camera: Camera, frame, stamp: int):
         started = time.monotonic()
@@ -193,7 +217,7 @@ def main(argv=None) -> int:
             bodies = gemx.predict(rgb, square_boxes(boxes), frame.K)
             for i, person in enumerate(ids):
                 joints, fit = bodies.joints[i], None
-                if not args.no_depth_fit:
+                if not (args.no_depth_fit or args.no_depth):
                     fit = fit_depth(bodies.vertices[i], frame.depth, frame.K, gate=args.gate)
                     if fit is not None:
                         joints = moved(joints, joints[0], fit.shift)
@@ -201,7 +225,8 @@ def main(argv=None) -> int:
                 out.append({"id": person, "joints": joints.cpu().numpy(), "valid": bodies.valid[i].cpu().numpy(),
                             "depth_fit": None if fit is None else fit.as_dict()})
         latency = (time.time_ns() - stamp) / 1e6
-        camera.publisher.put(bodies_message(stamp, frame.frame_id, latency, out))
+        camera.publisher.put(bodies_message(stamp, frame.frame_id, latency, out,
+                                            depth="none" if args.no_depth else None))
         camera.report.counts["frames"] += 1
         camera.report.counts["bodies"] += len(out)
         camera.report.counts["seconds"] += time.monotonic() - started
@@ -209,8 +234,10 @@ def main(argv=None) -> int:
     def report(camera: Camera):
         c, seconds = camera.report.take()
         n = max(c["frames"], 1)
+        fitted = ("colour only, distances from the image" if args.no_depth
+                  else f"{c['fitted']} of {c['bodies']} fitted to the depth")
         level, message = node.state(f"{c['frames'] / seconds:.1f} frames/s, {c['bodies'] / n:.1f} bodies a frame "
-                                    f"({c['fitted']} of {c['bodies']} fitted to the depth)",
+                                    f"({fitted})",
                                     waiting=None if c["frames"] else camera.inputs.waiting())
         camera.report.publish(level, message, {"frames/s": c["frames"] / seconds, "bodies/frame": c["bodies"] / n,
                                                "ms/frame": 1e3 * c["seconds"] / n, "streams": str(camera.spec)},

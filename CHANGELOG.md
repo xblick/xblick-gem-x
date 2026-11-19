@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.8 (2026-11-19)
+
+Bodies from a colour stream alone, for a first result without a camera with depth.
+
+### Added
+
+- `--no-depth`: the node reads the colour stream alone (a camera is `CAMERA[:color=NAME]`; a `depth=` in it is an
+  error) and subscribes to no depth stream. The bodies are GEM-X's as it estimates them from the image and the
+  intrinsics, never fitted to a depth: every `depth_fit` is null, and the message has `"depth": "none"`. The node
+  works at the colour stream's resolution. `--no-depth` and `--no-depth-fit` exclude each other. Without
+  `--no-depth` the node needs the depth stream as before, and its messages have no `depth` field.
+
+### Changed
+
+- README: the first start is a video with `--no-depth` and `xblick rerun`; the camera with depth follows as the
+  full mode. docs/design.md: what changes without depth, the new message field, the option, the tests.
+
 ## 0.2.7 (2026-11-19)
 
 An installation that a beginner can follow from the README alone.

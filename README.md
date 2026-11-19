@@ -6,7 +6,8 @@
 [![device](https://img.shields.io/badge/needs-NVIDIA%20GPU-76b900)](README.md)
 
 This [Durchblick](https://github.com/xblick/xblick) node computes the 3D bodies of the people in
-front of a colour camera with depth. It takes about 60 ms per frame with two persons, so it keeps up with a camera at
+front of a colour camera with depth. With `--no-depth` it works on a colour stream alone, with distances estimated
+from the image. It takes about 60 ms per frame with two persons, so it keeps up with a camera at
 10 frames per second.
 
 The node uses [GEM-X](https://github.com/NVlabs/GEM-X), a model from NVIDIA (2026) that estimates full-body and hand
@@ -21,14 +22,16 @@ The node publishes one message per processed frame and camera. The message has t
 
 | Topic | Message type | Content |
 | --- | --- | --- |
-| `<camera>/gem_x/bodies` | JSON, the layout of xblick-azure-kinect's bodies | model `K4ABT_BODY_32`: per body an id and 32 joints in mm in the frame of the colour camera. Each body also has `soma77_mm` with all 77 SOMA joints and `depth_fit` with the result of the depth fit. |
+| `<camera>/gem_x/bodies` | JSON, the layout of xblick-azure-kinect's bodies | model `K4ABT_BODY_32`: per body an id and 32 joints in mm in the frame of the colour camera. Each body also has `soma77_mm` with all 77 SOMA joints and `depth_fit` with the result of the depth fit. With `--no-depth` the message also has `"depth": "none"`, and `depth_fit` is null. |
 | `<camera>/diagnostics` | `diagnostic_msgs/DiagnosticArray` | status `gem_x` once per second: frames per second, bodies per frame, ms per frame, the streams in use |
 
 `--bodies-key` changes the topic of the bodies, and `--node` changes the `gem_x` part. `xblick rerun` draws the
 bodies as skeletons in 3D and over the colour stream.
 
 The node reads `<camera>/<color>` and `<camera>/<depth>`. The depth must be 16UC1 in mm in the geometry of the colour
-camera. [How the node works](docs/design.md) describes the message and the four steps per frame.
+camera. With `--no-depth` it reads `<camera>/<color>` alone. The positions are then GEM-X's estimate: the size of a
+person from its learned body shape, the distance from that size and the camera's intrinsics, not measured. [How the
+node works](docs/design.md) describes the message, the four steps per frame and what changes without depth.
 
 ## Requirements
 
@@ -67,7 +70,7 @@ The install fetches the GEM-X code, and the node downloads the three others. Thi
 2. Install the node and download its weights:
 
    ```bash
-   uv tool install git+https://github.com/xblick/xblick-gem-x@v0.2.7
+   uv tool install git+https://github.com/xblick/xblick-gem-x@v0.2.8
    xblick-gem-x --download-only
    ```
 
@@ -89,18 +92,30 @@ The install fetches the GEM-X code, and the node downloads the three others. Thi
    uv tool install "xblick[rerun,video,cam]>=0.5,<0.6"
    ```
 
-4. Start the node on a camera with a depth stream in the geometry of its colour camera: the node fits each body to
-   the depth and waits for depth frames. [xblick-azure-kinect](https://github.com/xblick/xblick-azure-kinect)
-   publishes such a camera, `cam/azurekinect` with the depth `depth_to_color`. Run each command in its own terminal.
-   If the PC already runs a Zenoh router (`xblick router` or `zenohd`), leave out the first one.
+4. Start the node on a video, without a camera. Take a short video of a person, whole in the picture, for example
+   from a phone. Run each command in its own terminal. If the PC already runs a Zenoh router (`xblick router` or
+   `zenohd`), leave out the first one.
 
    ```bash
-   xblick router                                         # the Zenoh router of this PC
-   xblick-gem-x --camera cam/azurekinect:depth=depth_to_color
-   xblick rerun                                          # the viewer
+   xblick router                                               # the Zenoh router of this PC
+   xblick play ~/Videos/clip.mp4 --camera demo/video --loop    # the video as the camera demo/video
+   xblick-gem-x --camera demo/video --no-depth
+   xblick rerun                                                # the viewer
    ```
 
-   The viewer shows each person in view as a skeleton over the colour image and in its 3D view.
+   The viewer shows the video with each person's skeleton over it, and the skeletons in its 3D view. `--no-depth`
+   makes the node work on the colour stream alone: the distances of the bodies are estimates from the image and
+   from the intrinsics, which `xblick play` takes from an assumed field of view of 60 degrees. The node's start
+   line and every message say so (`"depth": "none"`).
+
+5. With a camera that has a depth stream in the geometry of its colour camera, the node fits each body to the
+   measured depth (the full mode). [xblick-azure-kinect](https://github.com/xblick/xblick-azure-kinect) publishes
+   such a camera, `cam/azurekinect` with the depth `depth_to_color`:
+
+   ```bash
+   xblick-gem-x --camera cam/azurekinect:depth=depth_to_color
+   xblick rerun
+   ```
 
 ### From a clone
 
@@ -169,7 +184,8 @@ only one of the two on a camera.
 | `--bodies-key KEY` | `{camera}/{node}/bodies` | the topic of the bodies. The node fills in `{camera}` and `{node}`. |
 | `--max-hz HZ` | 20 | the most colour frames per second that the node processes. `0` or `none` means every frame. |
 | `--max-offset-ms MS` | 20 | the largest stamp difference between a colour frame and its depth frame. A colour frame without a depth frame that close is skipped and counted. `0` accepts only equal stamps. |
-| `--no-depth-fit` | off | publish the distance that GEM-X estimates from the image alone |
+| `--no-depth-fit` | off | publish the distance that GEM-X estimates from the image alone. The node still reads and waits for the depth stream. |
+| `--no-depth` | off | colour only: read no depth stream (a camera is `CAMERA[:color=NAME]`). The distances are GEM-X's estimate, never fitted, and the message has `"depth": "none"`. Excludes `--no-depth-fit`. |
 | `--min-height PX` | 60 | ignore persons whose box is lower than this. Live: it changes while the node runs. |
 | `--max-persons N` | 6 | process only the N largest persons of a frame. Live: it changes while the node runs. |
 | `--local` | `auto` | how frames of a camera on this host reach the node: `auto`, `shm` or `cuda` |
